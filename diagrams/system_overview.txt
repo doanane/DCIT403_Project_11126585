@@ -1,0 +1,111 @@
+WASTEWATCH - SYSTEM OVERVIEW DIAGRAM
+Prometheus Methodology Artifact - Chapter 7: Finalizing Architectural Design
+====================================================================
+
+EXTERNAL ENVIRONMENT
++--------------------+     +----------------------+
+|   Sensor Network   |     |   Citizen Portal     |
+|  (4 sensor types:  |     |  (Web-based report   |
+|   chemical,        |     |   submission system) |
+|   temperature,     |     |                      |
+|   air_quality,     |     |   CitizenReport       |
+|   radiation)       |     |   {report_id,        |
+|                    |     |    location_key,      |
+|   SensorAlert      |     |    description,       |
+|   {alert_id,       |     |    photo_available,   |
+|    sensor_type,    |     |    timestamp}         |
+|    location_key,   |     +----------+-----------+
+|    reading_value,  |                |
+|    threshold,      |                | CITIZEN_REPORT
+|    unit,           |                |
+|    timestamp}      |                |
++--------+-----------+                |
+         |                            |
+         | SENSOR_ALERT               |
+         |                            |
+         v                            v
++========================================================+
+|              WASTEWATCH AGENT SYSTEM                   |
+|                                                        |
+|  +--------------------------------------------------+  |
+|  |              SurveillanceAgent                   |  |
+|  |                                                  |  |
+|  |  Beliefs:                                        |  |
+|  |    IncidentDatabase        LocationDatabase      |  |
+|  |    pending_sensor_alerts   dispatched_ids        |  |
+|  |    pending_citizen_reports                       |  |
+|  |                                                  |  |
+|  |  Plans:                                          |  |
+|  |    handle_sensor_alert                           |  |
+|  |    handle_citizen_report                         |  |
+|  |    handle_response_update                        |  |
+|  +-------------------+------------------------------+  |
+|                      |                                 |
+|          INCIDENT_DETECTED / INCIDENT_UPDATE           |
+|                      |                                 |
+|                      v                                 |
+|  +--------------------------------------------------+  |
+|  |              AssessmentAgent                     |  |
+|  |                                                  |  |
+|  |  Beliefs:                                        |  |
+|  |    pending_assessments  classified_incidents     |  |
+|  |    classification_rules                          |  |
+|  |                                                  |  |
+|  |  Plans:                                          |  |
+|  |    assess_incident   (with alt sub-plans)        |  |
+|  |    handle_update                                 |  |
+|  +--------+--------------------+--------------------+  |
+|           |                    |                       |
+|    INCIDENT_CLASSIFIED  DISPATCH_REQUEST               |
+|           |                    |                       |
+|           v                    v                       |
+|  +--------------------+  +------------------------+   |
+|  |   EvidenceAgent    |  |   EnforcementAgent     |   |
+|  |                    |  |                        |   |
+|  |  Beliefs:          |  |  Beliefs:              |   |
+|  |   evidence_records |  |   authority_db         |   |
+|  |   compiled_packages|  |   pending_dispatches   |   |
+|  |                    |  |   received_evidence    |   |
+|  |  Plans:            |  |   case_files           |   |
+|  |   collect_evidence |  |   resolved_incidents   |   |
+|  +--------+-----------+  |                        |   |
+|           |              |  Plans:                |   |
+|   EVIDENCE_PACKAGE       |   process_dispatch     |   |
+|           |              |   attach_evidence      |   |
+|           +------------->|   escalate             |   |
+|                          +----------+-------------+   |
+|                                     |                 |
+|                        RESPONSE_UPDATE                |
+|                                     |                 |
+|              SurveillanceAgent <----+                 |
+|                                                        |
++========================================================+
+         |
+         | Escalation notifications
+         v
++=============================================+
+|     EXTERNAL AUTHORITIES (simulated)        |
+|                                             |
+|  EPA  |  HAZMAT  |  LOCAL_ENV  |  REGIONAL  |
++=============================================+
+
+====================================================================
+SHARED DATA OBJECTS
+  Incident        : Created by SurveillanceAgent, referenced by all
+  SensorAlert     : Component of Incident
+  CitizenReport   : Component of Incident
+  EvidencePackage : Created by EvidenceAgent, used by EnforcementAgent
+  DispatchRecord  : Created by EnforcementAgent per authority dispatched
+  CaseFile        : Internal EnforcementAgent record per incident
+====================================================================
+
+MESSAGE TYPES CROSSING BOUNDARIES
+  SENSOR_ALERT        Environment -> SurveillanceAgent
+  CITIZEN_REPORT      Environment -> SurveillanceAgent
+  INCIDENT_DETECTED   SurveillanceAgent -> AssessmentAgent
+  INCIDENT_UPDATE     SurveillanceAgent -> AssessmentAgent
+  INCIDENT_CLASSIFIED AssessmentAgent -> EvidenceAgent
+  DISPATCH_REQUEST    AssessmentAgent -> EnforcementAgent
+  EVIDENCE_PACKAGE    EvidenceAgent -> EnforcementAgent
+  RESPONSE_UPDATE     EnforcementAgent -> SurveillanceAgent
+====================================================================

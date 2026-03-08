@@ -1,0 +1,81 @@
+WASTEWATCH - INTERACTION DIAGRAM: SCENARIO 2
+Non-Hazardous Construction Waste at Roadside (LOC-B)
+Prometheus Methodology Artifact - Chapter 6.1
+====================================================================
+
+Actors: CitizenPortal, SurveillanceAgent, AssessmentAgent,
+        EvidenceAgent, EnforcementAgent
+
+CITIZEN  SURVEIL  ASSESS  EVIDENCE  ENFORCE
+PORTAL   LANCE    MENT    AGENT     MENT
+|        |        |       |         |
+| CR-002  |        |       |         |   STEP 5
+| "rubble |        |       |         |
+|  debris"|        |       |         |
+|-------->|        |       |         |
+|         | store  |       |         |
+|         | count=1|       |         |
+|         | wait   |       |         |
+|         |        |       |         |
+| CR-003  |        |       |         |   STEP 6
+| confirm |        |       |         |
+|-------->|        |       |         |
+|         | count=2|       |         |
+|         | CREATE |       |         |
+|         | INC-B  |       |         |
+|         |        |       |         |
+|         | INCIDENT_DETECTED        |
+|         | (INC-B, LOC-B,  |        |
+|         | sensors=[],     |        |
+|         | reports=2,      |        |
+|         | confidence=0.4) |        |
+|         |------->|       |         |
+|         |        |KEYWORD|         |
+|         |        |ANALYSIS        |
+|         |        |rubble,|         |
+|         |        |concrete        |
+|         |        |->NON_ |         |
+|         |        |HAZARD |         |
+|         |        |       |         |
+|         |        | INCIDENT_CLASSIFIED
+|         |        | (INC-B,         |
+|         |        |  NON_HAZARDOUS, |
+|         |        |  MEDIUM)        |
+|         |        |------>|         |
+|         |        |       | GATHER  |
+|         |        |       | 2 rpts  |
+|         |        |       | +meta   |
+|         |        | DISPATCH_REQUEST|
+|         |        | (INC-B,         |
+|         |        |  NON_HAZARDOUS, |
+|         |        |  MEDIUM)        |
+|         |        |-------+-------->|
+|         |        |       |         | SELECT
+|         |        |       |         | LOCAL_ENV
+|         |        |       |         | DISPATCH
+|         |        |       | EVIDENCE_PACKAGE
+|         |        |       | (EP-002)|
+|         |        |       |-------->|
+|         |        |       |         | ATTACH
+|         |        |       |         | EVIDENCE
+|         |        |       |         |
+|         | RESPONSE_UPDATE          |
+|         | (INC-B, dispatched)      |
+|         |<-------------------------|
+|         |        |       |         |
+[STEP 11 - 5 steps after evidence attached]
+|         |        |       |         |
+|         |        |       |         | TIMEOUT
+|         |        |       |         | ESCALATE
+|         |        |       |         | -> REGIONAL
+
+====================================================================
+KEY DIFFERENCE FROM SCENARIO 1:
+  - Triggered by citizen reports (no sensor data)
+  - Keyword analysis selects NON_HAZARDOUS plan
+  - Lower confidence (0.4 vs 0.6) due to no sensor confirmation
+  - Different authority selected (LOCAL_ENV vs EPA+HAZMAT)
+====================================================================
+OUTCOME: INC-B classified NON_HAZARDOUS/MEDIUM, Local Environmental
+         Officer dispatched, escalated to Regional Unit after timeout
+====================================================================

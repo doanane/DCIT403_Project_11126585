@@ -1,0 +1,92 @@
+WASTEWATCH - CAPABILITY OVERVIEW: AssessmentAgent
+Prometheus Methodology Artifact - Chapter 9.1
+====================================================================
+
++------------------------------------------------------------------+
+|                       AssessmentAgent                            |
+|                                                                  |
+|  PERCEPTS IN:                                                    |
+|    INCIDENT_DETECTED (from SurveillanceAgent)                    |
+|    INCIDENT_UPDATE (from SurveillanceAgent)                      |
+|                                                                  |
+|  MESSAGES OUT:                                                   |
+|    INCIDENT_CLASSIFIED -> EvidenceAgent                          |
+|    DISPATCH_REQUEST -> EnforcementAgent                          |
+|                                                                  |
++----------------------+-------------------------------------------+
+                       |                    |
+                       v                    v
+    +----------------------------+   +------------------+
+    | WasteTypeClassification    |   | UpdateProcessing |
+    | Capability                 |   | Capability       |
+    |                            |   |                  |
+    | Trigger:                   |   | Trigger:         |
+    |   INCIDENT_DETECTED msg    |   |   INCIDENT_UPDATE|
+    |                            |   |   message        |
+    | Plan: assess_incident      |   |                  |
+    |                            |   | Plan:            |
+    | ALTERNATIVE PLANS INSIDE   |   |   handle_update  |
+    | _determine_waste_type:     |   |                  |
+    |                            |   | Data used:       |
+    |  Context 1:                |   |  classified_     |
+    |   sensor_type in hazardous |   |  incidents       |
+    |   set (chem/rad/air_qual)  |   |  [incident_id]   |
+    |   -> waste_type=hazardous  |   |  ["confidence"]  |
+    |                            |   +------------------+
+    |  Context 2:                |
+    |   no hazardous sensors,    |
+    |   solid waste keywords in  |
+    |   report text              |
+    |   -> waste_type=non_hazard |
+    |                            |
+    |  Context 3:                |
+    |   no hazardous sensors,    |
+    |   chemical keywords in     |
+    |   report text              |
+    |   -> waste_type=hazardous  |
+    |                            |
+    |  Default:                  |
+    |   no matching signals      |
+    |   -> waste_type=non_hazard |
+    +----------------------------+
+    |
+    | ALTERNATIVE SEVERITY DETERMINATION
+    | (sub-plan within assess_incident)
+    |
+    +-- Sensor type == chemical:
+    |     value > 200 -> score 4 (critical)
+    |     value > 100 -> score 3 (high)
+    |     value > 50  -> score 2 (medium)
+    |     else        -> score 1 (low)
+    |
+    +-- Sensor type == temperature:
+    |     value > 120 -> score 4 (critical)
+    |     value > 80  -> score 3 (high)
+    |     value > 50  -> score 2 (medium)
+    |     else        -> score 1 (low)
+    |
+    +-- Sensor type == air_quality / radiation:
+    |     ratio > 3.0 -> score 4 (critical)
+    |     ratio > 2.0 -> score 3 (high)
+    |     else        -> score 2 (medium)
+    |
+    +-- Reports >= 2 (no sensor):
+          score at least 2 (medium)
+
+BELIEFS MAINTAINED
++------------------------------------------------------------------+
+| Name                  | Type       | Updated by                  |
++-----------------------+------------+-----------------------------+
+| pending_assessments   | dict       | assess_incident             |
+| classified_incidents  | dict       | assess_incident             |
+| classification_rules  | dict(static| initialized in __init__      |
++------------------------------------------------------------------+
+
+CONTEXT CONDITIONS FOR PLAN SELECTION
+  The assess_incident plan internally branches:
+    - _determine_waste_type applies priority-ordered rules
+    - _determine_severity applies threshold comparison per sensor type
+  These internal branches implement Prometheus alternative plan
+  selection based on context conditions (Chapter 9.2.1)
+
+====================================================================

@@ -1,0 +1,92 @@
+WASTEWATCH - INTERACTION DIAGRAM: SCENARIO 1
+Chemical Hazardous Waste at Abandoned Industrial Site (LOC-A)
+Prometheus Methodology Artifact - Chapter 6.1
+====================================================================
+
+Actors: SensorNetwork, CitizenPortal, SurveillanceAgent,
+        AssessmentAgent, EvidenceAgent, EnforcementAgent
+
+SENSOR  CITIZEN  SURVEIL  ASSESS  EVIDENCE  ENFORCE
+NET     PORTAL   LANCE    MENT    AGENT     MENT
+|       |        |        |       |         |
+| SA-001|        |        |       |         |
+| CHEM  |        |        |       |         |   STEP 1
+| 157ppm|        |        |       |         |
+|------>| SENSOR_ALERT    |       |         |
+|       |------->|        |       |         |
+|       |        | store  |       |         |
+|       |        | count=1|       |         |
+|       |        | wait   |       |         |
+|       |        |        |       |         |
+| SA-002|        |        |       |         |
+| TEMP  |        |        |       |         |   STEP 2
+| 134C  |        |        |       |         |
+|------>| SENSOR_ALERT    |       |         |
+|       |------->|        |       |         |
+|       |        | count=2|       |         |
+|       |        | CREATE |       |         |
+|       |        | INC-A  |       |         |
+|       |        |        |       |         |
+|       |        | INCIDENT_DETECTED        |
+|       |        | (INC-A, LOC-A,  |        |
+|       |        | sensors=[C,T],  |        |
+|       |        | confidence=0.6) |        |
+|       |        |------->|       |         |
+|       |        |        | ASSESS|         |
+|       |        |        | HAZARD|         |
+|       |        |        | /CRIT |         |
+|       |        |        |       |         |
+|       |        |        | INCIDENT_CLASSIFIED
+|       |        |        | (INC-A, HAZARD, |
+|       |        |        |  CRITICAL)      |
+|       |        |        |------>|         |
+|       |        |        |       | COLLECT |
+|       |        |        |       | 4 items |
+|       |        |        | DISPATCH_REQUEST|
+|       |        |        | (INC-A, HAZARD, |
+|       |        |        |  CRITICAL)      |
+|       |        |        |-------+-------->|
+|       |        |        |       |         | SELECT
+|       |        |        |       |         | EPA +
+|       |        |        |       |         | HAZMAT
+|       |        |        |       | EVIDENCE_PACKAGE
+|       |        |        |       | (EP-001, INC-A)
+|       |        |        |       |-------->|
+|       |        |        |       |         | ATTACH
+|       |        |        |       |         | EVIDENCE
+|       |        |        |       |         | PRINT
+|       |        |        |       |         | CASE SUMMARY
+|       |        |        |       |         |
+|       |        | RESPONSE_UPDATE          |
+|       |        | (INC-A, dispatched)      |
+|       |        |<-------------------------|
+|       |        | update |       |         |
+|       |        | status |       |         |
+|       |        |        |       |         |
+| CR-001|        |        |       |         |   STEP 3
+| CITIZEN        |        |       |         |
+| REPORT |       |        |       |         |
+|       |------->|        |       |         |
+|       |        | CORREL |       |         |
+|       |        | to INC-A       |         |
+|       |        | conf=0.8       |         |
+|       |        | INCIDENT_UPDATE|         |
+|       |        | (INC-A,conf=0.8)         |
+|       |        |------->|       |         |
+|       |        |        | UPDATE|         |
+|       |        |        | BELIEF|         |
+|       |        |        |       |         |
+[STEP 7 - 5 steps after evidence attached]  |
+|       |        |        |       |         |
+|       |        |        |       |         | TIMEOUT
+|       |        |        |       |         | DETECTED
+|       |        |        |       |         | ESCALATE
+|       |        |        |       |         | -> REGIONAL
+|       |        |        |       |         | case status
+|       |        |        |       |         | = escalated
+|       |        |        |       |         |
+
+====================================================================
+OUTCOME: INC-A classified HAZARDOUS/CRITICAL, EPA + HAZMAT dispatched,
+         subsequently escalated to Greater Accra Regional Enforcement Unit
+====================================================================

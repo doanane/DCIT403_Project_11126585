@@ -1,0 +1,75 @@
+WASTEWATCH - ACQUAINTANCE DIAGRAM
+Prometheus Methodology Artifact - Chapter 5.3: Review Agent Coupling
+====================================================================
+
+An acquaintance relationship means Agent A knows about Agent B and
+can send messages to it. Arrows indicate direction of communication.
+
+           +-------------------+
+           |  SensorNetwork    |
+           |  (Environment)    |
+           +---------+---------+
+                     |
+                     | [SENSOR_ALERT]
+                     |
+           +-------------------+
+           |  CitizenPortal    |
+           |  (Environment)    |
+           +---------+---------+
+                     |
+                     | [CITIZEN_REPORT]
+                     |
+                     v
+         +-----------+------------+
+         |                        |
+         |   SurveillanceAgent    |<----- RESPONSE_UPDATE -----+
+         |                        |                             |
+         +-----------+------------+                             |
+                     |                                          |
+           [INCIDENT_DETECTED]                                  |
+           [INCIDENT_UPDATE]                                    |
+                     |                                          |
+                     v                                          |
+         +-----------+------------+                             |
+         |                        |                             |
+         |    AssessmentAgent     |                             |
+         |                        |                             |
+         +-----------+------------+                             |
+                     |                                          |
+         +-----------+----------+                               |
+         |                      |                               |
+[INCIDENT_CLASSIFIED]   [DISPATCH_REQUEST]                      |
+         |                      |                               |
+         v                      v                               |
++--------+-------+   +----------+----------+                   |
+|                |   |                     |                   |
+|  EvidenceAgent |   |  EnforcementAgent   +-------------------+
+|                +--->                     |
++----------------+   +---------------------+
+    [EVIDENCE_PACKAGE]
+
+
+ACQUAINTANCE SUMMARY TABLE
+
+  Agent               Knows About                 Sends To
+  ------------------- --------------------------- ---------------------
+  SurveillanceAgent   AssessmentAgent             AssessmentAgent
+  SurveillanceAgent   (receives from EnforcemAgt) -
+  AssessmentAgent     EvidenceAgent               EvidenceAgent
+  AssessmentAgent     EnforcementAgent            EnforcementAgent
+  EvidenceAgent       EnforcementAgent            EnforcementAgent
+  EnforcementAgent    SurveillanceAgent           SurveillanceAgent
+
+COUPLING ANALYSIS
+
+  SurveillanceAgent   -> AssessmentAgent  : TIGHT (primary pipeline dependency)
+  AssessmentAgent     -> EvidenceAgent    : LOOSE (one message type)
+  AssessmentAgent     -> EnforcementAgent : LOOSE (one message type)
+  EvidenceAgent       -> EnforcementAgent : LOOSE (one message type)
+  EnforcementAgent    -> SurveillanceAgent: LOOSE (status update only)
+
+  Total acquaintance pairs: 5
+  The system is loosely coupled overall. No agent depends on more than
+  two other agents. The pipeline is linear with one feedback loop.
+
+====================================================================

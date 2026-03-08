@@ -1,0 +1,63 @@
+WASTEWATCH - CAPABILITY OVERVIEW: SurveillanceAgent
+Prometheus Methodology Artifact - Chapter 9.1
+====================================================================
+
++------------------------------------------------------------------+
+|                       SurveillanceAgent                          |
+|                                                                  |
+|  PERCEPTS IN:                                                    |
+|    SENSOR_ALERT (from SensorNetwork)                             |
+|    CITIZEN_REPORT (from CitizenPortal)                           |
+|    RESPONSE_UPDATE (from EnforcementAgent)                       |
+|                                                                  |
+|  MESSAGES OUT:                                                   |
+|    INCIDENT_DETECTED -> AssessmentAgent                          |
+|    INCIDENT_UPDATE -> AssessmentAgent                            |
+|                                                                  |
++-------+----------------------------+----------------------------++
+        |                            |                            |
+        v                            v                            v
++-----------------+    +---------------------+    +---------------+
+| SensorMonitor   |    | ReportProcessing    |    | IncidentMgmt  |
+| Capability      |    | Capability          |    | Capability    |
+|                 |    |                     |    |               |
+| Trigger:        |    | Trigger:            |    | Trigger:      |
+|  SENSOR_ALERT   |    |  CITIZEN_REPORT     |    |  Threshold    |
+|  message        |    |  message            |    |  reached, or  |
+|                 |    |                     |    |  RESPONSE_UP  |
+| Plans:          |    | Plans:              |    |               |
+|  handle_sensor_ |    |  handle_citizen_    |    | Plans:        |
+|  alert          |    |  report             |    |  dispatch_to_ |
+|                 |    |                     |    |  assessment   |
+| Data used:      |    | Data used:          |    |               |
+|  pending_sensor |    |  pending_citizen    |    |  notify_      |
+|  _alerts[loc]   |    |  _reports[loc]      |    |  assessment_  |
+|  (dict)         |    |  (dict)             |    |  update       |
+|                 |    |                     |    |               |
+| Threshold:      |    | Threshold:          |    |  handle_      |
+|  count >= 2     |    |  count >= 2         |    |  response_    |
+|                 |    |                     |    |  update       |
+|                 |    |  also: correlates   |    |               |
+|                 |    |  to existing        |    | Data used:    |
+|                 |    |  incident if        |    |  IncidentDB   |
+|                 |    |  loc matches        |    |  LocationDB   |
++-----------------+    +---------------------+    +---------------+
+
+BELIEFS MAINTAINED
++------------------------------------------------------------------+
+| Name                    | Type            | Updated by           |
++-------------------------+-----------------+----------------------+
+| incidents               | IncidentDatabase| _create_*_incident   |
+| locations               | LocationDatabase| _create_*_incident   |
+| pending_sensor_alerts   | dict[str,list]  | handle_sensor_alert  |
+| pending_citizen_reports | dict[str,list]  | handle_citizen_report|
+| dispatched_incident_ids | set[str]        | _dispatch_to_assess  |
++------------------------------------------------------------------+
+
+PLAN SELECTION (select_plan method)
+  percept.performative == SENSOR_ALERT   -> handle_sensor_alert
+  percept.performative == CITIZEN_REPORT -> handle_citizen_report
+  percept.performative == RESPONSE_UPDATE-> handle_response_update
+  otherwise                              -> None (ignored)
+
+====================================================================

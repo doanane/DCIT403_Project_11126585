@@ -1,0 +1,101 @@
+WASTEWATCH - INTERACTION DIAGRAM: SCENARIO 3
+Air Quality Degradation at Riverbank - Late Report Corroboration (LOC-C)
+Prometheus Methodology Artifact - Chapter 6.1
+====================================================================
+
+Actors: SensorNetwork, CitizenPortal, SurveillanceAgent,
+        AssessmentAgent, EvidenceAgent, EnforcementAgent
+
+SENSOR  CITIZEN  SURVEIL  ASSESS  EVIDENCE  ENFORCE
+NET     PORTAL   LANCE    MENT    AGENT     MENT
+|       |        |        |       |         |
+| SA-003 |        |        |       |         |   STEP 7
+| AQI   |        |        |       |         |
+| 310   |        |        |       |         |
+|------>| SENSOR_ALERT    |       |         |
+|       |------->|        |       |         |
+|       |        | store  |       |         |
+|       |        | count=1|       |         |
+|       |        | wait   |       |         |
+|       |        |        |       |         |
+| SA-004 |        |        |       |         |   STEP 8
+| AQI   |        |        |       |         |
+| 290   |        |        |       |         |
+|------>| SENSOR_ALERT    |       |         |
+|       |------->|        |       |         |
+|       |        | count=2|       |         |
+|       |        | CREATE |       |         |
+|       |        | INC-C  |       |         |
+|       |        |        |       |         |
+|       |        | INCIDENT_DETECTED        |
+|       |        | (INC-C, LOC-C,  |        |
+|       |        | sensors=[AQ],   |        |
+|       |        | confidence=0.6) |        |
+|       |        |------->|       |         |
+|       |        |        | RULE: |         |
+|       |        |        | AQ-type        |
+|       |        |        | =HAZARD        |
+|       |        |        | ratio=3.05     |
+|       |        |        | =CRITICAL      |
+|       |        |        |       |         |
+|       |        |        | INCIDENT_CLASSIFIED
+|       |        |        | (INC-C,HAZARD, |
+|       |        |        |  CRITICAL)     |
+|       |        |        |------>|         |
+|       |        |        |       | COLLECT |
+|       |        |        | DISPATCH_REQUEST|
+|       |        |        |-------+-------->|
+|       |        |        |       | EVIDENCE_PACKAGE
+|       |        |        |       |-------->|
+|       |        |        |       |         | DISPATCH
+|       |        |        |       |         | EPA +
+|       |        |        |       |         | HAZMAT
+|       |        | RESPONSE_UPDATE          |
+|       |        |<-------------------------|
+|       |        |        |       |         |
+|       |        |        |       |         |   STEP 9
+|       |        | update |       |         |
+|       |        | status |       |         |
+|       |        |        |       |         |
+| CR-004 |        |        |       |         |   STEP 10
+| RIVER |        |        |       |         |
+| CONTAM|        |        |       |         |
+|       |------->|        |       |         |
+|       |        | LOCATE |       |         |
+|       |        | INC-C  |       |         |
+|       |        | exists |       |         |
+|       |        | CORREL |       |         |
+|       |        | report |       |         |
+|       |        | conf   |       |         |
+|       |        | 0.6->0.8       |         |
+|       |        |        |       |         |
+|       |        | INCIDENT_UPDATE|         |
+|       |        | (INC-C,        |         |
+|       |        |  conf=0.8)     |         |
+|       |        |------->|       |         |
+|       |        |        | UPDATE|         |
+|       |        |        | CONF  |         |
+|       |        |        | BELIEF|         |
+|       |        |        |       |         |
+[STEP 13 - 5 steps after evidence attached at step 8]
+|       |        |        |       |         |
+|       |        |        |       |         | CHECK
+|       |        |        |       |         | steps=5
+|       |        |        |       |         | ESCALATE
+|       |        |        |       |         | -> REGIONAL
+|       |        |        |       |         | status=
+|       |        |        |       |         | escalated
+
+====================================================================
+KEY FEATURES DEMONSTRATED IN SCENARIO 3:
+  1. Air quality sensor type correctly triggers hazardous classification
+  2. Late citizen report arrives AFTER incident is already dispatched
+  3. SurveillanceAgent correctly identifies existing incident and
+     correlates the late report rather than creating a new incident
+  4. Confidence updated from 0.6 to 0.8 without re-dispatching
+  5. Escalation triggered step-based timeout independent of real time
+====================================================================
+OUTCOME: INC-C classified HAZARDOUS/CRITICAL, EPA + HAZMAT dispatched,
+         late citizen report corroborated the incident (confidence 0.8),
+         subsequently escalated to Greater Accra Regional Enforcement Unit
+====================================================================
