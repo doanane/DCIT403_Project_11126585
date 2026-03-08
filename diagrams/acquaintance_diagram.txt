@@ -1,75 +1,90 @@
-WASTEWATCH - ACQUAINTANCE DIAGRAM
-Prometheus Methodology Artifact - Chapter 5.3: Review Agent Coupling
-====================================================================
+MEDSTOCK - ACQUAINTANCE DIAGRAM
+Prometheus Methodology Artifact
+Student ID: 11126585 | Course: DCIT 403
 
-An acquaintance relationship means Agent A knows about Agent B and
-can send messages to it. Arrows indicate direction of communication.
+================================================================================
 
-           +-------------------+
-           |  SensorNetwork    |
-           |  (Environment)    |
-           +---------+---------+
-                     |
-                     | [SENSOR_ALERT]
-                     |
-           +-------------------+
-           |  CitizenPortal    |
-           |  (Environment)    |
-           +---------+---------+
-                     |
-                     | [CITIZEN_REPORT]
-                     |
-                     v
-         +-----------+------------+
-         |                        |
-         |   SurveillanceAgent    |<----- RESPONSE_UPDATE -----+
-         |                        |                             |
-         +-----------+------------+                             |
-                     |                                          |
-           [INCIDENT_DETECTED]                                  |
-           [INCIDENT_UPDATE]                                    |
-                     |                                          |
-                     v                                          |
-         +-----------+------------+                             |
-         |                        |                             |
-         |    AssessmentAgent     |                             |
-         |                        |                             |
-         +-----------+------------+                             |
-                     |                                          |
-         +-----------+----------+                               |
-         |                      |                               |
-[INCIDENT_CLASSIFIED]   [DISPATCH_REQUEST]                      |
-         |                      |                               |
-         v                      v                               |
-+--------+-------+   +----------+----------+                   |
-|                |   |                     |                   |
-|  EvidenceAgent |   |  EnforcementAgent   +-------------------+
-|                +--->                     |
-+----------------+   +---------------------+
-    [EVIDENCE_PACKAGE]
+An acquaintance diagram shows which agents communicate with which other agents.
+Arrows indicate the direction of message flow. The PharmacySensor is an
+environment object, not an agent, but is included as the source of percepts.
 
+================================================================================
 
-ACQUAINTANCE SUMMARY TABLE
+  +-----------------------+
+  |    PharmacySensor     |
+  |   (Environment)       |
+  +-----------------------+
+              |
+              |  STOCK_READING
+              |
+              v
+  +-----------------------+
+  |   StockMonitorAgent   |
+  |   (Monitoring)        |
+  +-----------------------+
+              |
+              |  STOCK_ALERT
+              |
+              v
+  +-----------------------+
+  | SupplyAssessmentAgent |
+  |   (Classification)    |
+  +-----------------------+
+         |           |
+         |           |
+  SHORTAGE    SHORTAGE
+  CLASSIFIED  CLASSIFIED
+  (xfer plan) (proc plan)
+         |           |
+         v           v
+  +----------+  +---------------------------+
+  | Transfer |  | Procurement               |
+  | Coord.   |  | Escalation Agent          |
+  | Agent    |  | (Lifecycle Management)    |
+  | (Xfer)   |  +---------------------------+
+  +----------+            ^
+         |                |
+         |  TRANSFER      |
+         |  RESULT        |
+         +----------------+
 
-  Agent               Knows About                 Sends To
-  ------------------- --------------------------- ---------------------
-  SurveillanceAgent   AssessmentAgent             AssessmentAgent
-  SurveillanceAgent   (receives from EnforcemAgt) -
-  AssessmentAgent     EvidenceAgent               EvidenceAgent
-  AssessmentAgent     EnforcementAgent            EnforcementAgent
-  EvidenceAgent       EnforcementAgent            EnforcementAgent
-  EnforcementAgent    SurveillanceAgent           SurveillanceAgent
+================================================================================
 
 COUPLING ANALYSIS
+=================
 
-  SurveillanceAgent   -> AssessmentAgent  : TIGHT (primary pipeline dependency)
-  AssessmentAgent     -> EvidenceAgent    : LOOSE (one message type)
-  AssessmentAgent     -> EnforcementAgent : LOOSE (one message type)
-  EvidenceAgent       -> EnforcementAgent : LOOSE (one message type)
-  EnforcementAgent    -> SurveillanceAgent: LOOSE (status update only)
+Agent pair                            | Message            | Direction
+--------------------------------------|--------------------|-----------
+PharmacySensor -> StockMonitorAgent   | STOCK_READING      | 1-to-1
+StockMonitorAgent -> SupplyAssess.    | STOCK_ALERT        | 1-to-1
+SupplyAssess. -> TransferCoord.       | SHORTAGE_CLASSIFIED| 1-to-1
+SupplyAssess. -> ProcurementEscal.    | SHORTAGE_CLASSIFIED| 1-to-1
+TransferCoord. -> ProcurementEscal.   | TRANSFER_RESULT    | 1-to-1
 
-  Total acquaintance pairs: 5
-  The system is loosely coupled overall. No agent depends on more than
-  two other agents. The pipeline is linear with one feedback loop.
+Note: No agent sends a message back to a higher-level agent in the pipeline.
+The only lateral message is TRANSFER_RESULT from TransferCoordinationAgent to
+ProcurementEscalationAgent, which are at the same architectural level.
 
-====================================================================
+================================================================================
+
+AGENT RESPONSIBILITIES SUMMARY
+===============================
+
+StockMonitorAgent
+  Knows about: DrugDatabase (reads and writes stock levels)
+  Talks to:    SupplyAssessmentAgent
+
+SupplyAssessmentAgent
+  Knows about: DrugDatabase (reads drug category)
+  Talks to:    TransferCoordinationAgent, ProcurementEscalationAgent
+
+TransferCoordinationAgent
+  Knows about: DrugDatabase (reads all ward stocks, writes after transfer)
+               WardDatabase (writes TransferRecords, reads ward list)
+  Talks to:    ProcurementEscalationAgent
+
+ProcurementEscalationAgent
+  Knows about: SupplierDatabase (reads suppliers, writes ProcurementRecords)
+               DrugDatabase (reads drug metadata for procurement)
+  Talks to:    (none, terminal agent in the pipeline)
+  Receives from: SupplyAssessmentAgent, TransferCoordinationAgent, Simulator

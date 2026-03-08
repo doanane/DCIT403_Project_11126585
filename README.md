@@ -1,88 +1,52 @@
-# WasteWatch
-## Intelligent Illegal Waste Dumping Detection and Enforcement Coordination System
+# MedStock
+## Hospital Pharmacy Stock Depletion and Emergency Resupply Coordination
 
 **Student ID:** 11126585
 **Course:** DCIT 403 - Intelligent Agent Systems
-**Methodology:** Prometheus (Padgham & Winikoff, 2004)
-**Language:** Python 3
+**Methodology:** Prometheus (Padgham and Winikoff, 2004)
 
 ---
 
 ## Project Overview
 
-WasteWatch is a multi-agent system that detects illegal waste dumping incidents through an automated sensor network and citizen reports, classifies waste by type and severity, compiles tamper-evident evidence, and dispatches the correct enforcement authority. If no authority responds within the timeout window, the system escalates the case to a regional enforcement unit.
-
-The system implements the complete Prometheus methodology across five phases and demonstrates the following intelligent agent properties:
-- **Reactivity:** Agents respond immediately to sensor alerts and citizen reports
-- **Proactivity:** The EnforcementAgent proactively monitors for unresponded cases and escalates
-- **Social ability:** Four specialised agents communicate through structured messages
+MedStock is a multi-agent system that monitors drug stock levels across five hospital wards, detects critical and high-severity shortages, coordinates internal ward transfers where surplus stock exists, initiates emergency procurement orders from approved suppliers, and escalates unconfirmed orders after a configurable timeout. The system is built using the Prometheus agent design methodology and implemented in Python 3 using the standard library only.
 
 ---
 
 ## System Architecture
 
-```
-SensorNetwork --------> SurveillanceAgent -----> AssessmentAgent
-CitizenPortal -------->                               |
-                                                   /     \
-                                          EvidenceAgent  EnforcementAgent
-                                                   \     /
-                                          EVIDENCE_PACKAGE
-                                                      |
-                                            -> Authority Dispatch
-                                            -> Escalation if overdue
-```
-
----
-
-## Agents
+The system contains four intelligent agents communicating through a central message-passing infrastructure:
 
 | Agent | Role |
 |---|---|
-| SurveillanceAgent | Monitors environment, correlates signals, creates incidents |
-| AssessmentAgent | Classifies waste type and severity using rules and keywords |
-| EvidenceAgent | Collects and compiles tamper-evident evidence packages |
-| EnforcementAgent | Dispatches authorities, tracks responses, escalates overdue cases |
+| StockMonitorAgent | Receives sensor readings, classifies severity, sends stock alerts |
+| SupplyAssessmentAgent | Classifies shortage by drug category, selects response plan |
+| TransferCoordinationAgent | Searches for donor wards, executes transfers, enforces controlled substance policy |
+| ProcurementEscalationAgent | Initiates procurement, tracks orders, proactively escalates overdue procurement |
+
+Messages flow in this direction:
+
+```
+PharmacySensor -> StockMonitorAgent -> SupplyAssessmentAgent -> TransferCoordinationAgent
+                                                              -> ProcurementEscalationAgent
+                                       TransferCoordinationAgent -> ProcurementEscalationAgent
+```
 
 ---
 
-## Setup
+## Setup and Run
 
-### Prerequisites
+1. Ensure Python 3 is installed.
+2. Activate the virtual environment:
+   ```
+   .venv/Scripts/activate
+   ```
+3. Run the application:
+   ```
+   .venv/Scripts/python main.py
+   ```
 
-- Python 3.8 or higher
-- The `.venv` virtual environment directory is already present in the project root
-
-### Activating the Virtual Environment
-
-**Windows (Command Prompt):**
-```
-.venv\Scripts\activate
-```
-
-**Windows (PowerShell):**
-```
-.venv\Scripts\Activate.ps1
-```
-
-**Linux / macOS:**
-```
-source .venv/bin/activate
-```
-
-### Installing Dependencies
-
-The system uses only the Python standard library. No additional packages are required.
-
-```
-pip install -r requirements.txt
-```
-
-### Running the Simulation
-
-```
-python main.py
-```
+No external packages are required. All dependencies are from the Python standard library.
 
 ---
 
@@ -90,85 +54,97 @@ python main.py
 
 ```
 DCIT403_Project_11126585/
-|
-+-- main.py                          Entry point
-+-- requirements.txt                 Python dependencies
-+-- README.md                        This file
-|
-+-- src/
-|   +-- core/
-|   |   +-- agent.py                 Abstract base Agent class (perceive/decide/act)
-|   |   +-- agent_system.py          Message routing and agent registry
-|   |   +-- message.py               Message dataclass and Performative enum
-|   |
-|   +-- agents/
-|   |   +-- surveillance_agent.py    SurveillanceAgent implementation
-|   |   +-- assessment_agent.py      AssessmentAgent implementation
-|   |   +-- evidence_agent.py        EvidenceAgent implementation
-|   |   +-- enforcement_agent.py     EnforcementAgent implementation
-|   |
-|   +-- beliefs/
-|   |   +-- incident_belief.py       Incident, SensorAlert, CitizenReport, IncidentDatabase
-|   |   +-- location_belief.py       Location, HotspotRecord, LocationDatabase
-|   |   +-- authority_belief.py      Authority, DispatchRecord, AuthorityDatabase
-|   |
-|   +-- environment/
-|   |   +-- sensor_network.py        Simulated sensor network (4 scheduled events)
-|   |   +-- report_generator.py      Simulated citizen report system (4 reports)
-|   |
-|   +-- simulation/
-|       +-- simulator.py             WasteWatchSimulator orchestration class
-|
-+-- docs/
-|   +-- phase1_system_specification.md
-|   +-- phase2_architectural_design.md
-|   +-- phase3_interaction_design.md
-|   +-- phase4_detailed_design.md
-|   +-- phase5_report.md
-|
-+-- diagrams/
-    +-- goal_hierarchy.txt
-    +-- system_overview.txt
-    +-- acquaintance_diagram.txt
-    +-- interaction_diagram_scenario1.txt
-    +-- interaction_diagram_scenario2.txt
-    +-- interaction_diagram_scenario3.txt
-    +-- capability_overview_surveillance.txt
-    +-- capability_overview_assessment.txt
-    +-- capability_overview_evidence.txt
-    +-- capability_overview_enforcement.txt
+├── main.py                          Entry point. Launches the MedStockApp tkinter window.
+├── requirements.txt                 Lists tkinter as the only dependency (stdlib).
+├── README.md                        This file.
+│
+├── src/                             All backend source code.
+│   ├── __init__.py
+│   ├── core/                        Agent infrastructure (framework-level code).
+│   │   ├── __init__.py
+│   │   ├── message.py               Performative enum and Message dataclass.
+│   │   ├── agent.py                 Base Agent class: inbox, send/receive, run_cycle.
+│   │   └── agent_system.py          AgentSystem: agent registry and message delivery.
+│   │
+│   ├── agents/                      The four domain-specific agents.
+│   │   ├── __init__.py
+│   │   ├── stock_monitor_agent.py   Detects shortages from sensor readings.
+│   │   ├── supply_assessment_agent.py  Classifies and routes shortage notifications.
+│   │   ├── transfer_coordination_agent.py  Coordinates inter-ward drug transfers.
+│   │   └── procurement_escalation_agent.py  Manages procurement and escalation.
+│   │
+│   ├── beliefs/                     Data model classes (beliefs in Prometheus terms).
+│   │   ├── __init__.py
+│   │   ├── drug_belief.py           Drug, StockRecord, DrugDatabase, DrugCategory, SeverityLevel.
+│   │   ├── ward_belief.py           Ward, TransferRecord, WardDatabase, TransferStatus.
+│   │   └── supplier_belief.py       Supplier, ProcurementRecord, SupplierDatabase, ProcurementStatus.
+│   │
+│   ├── environment/                 Environment objects that emit percepts.
+│   │   ├── __init__.py
+│   │   └── pharmacy_sensor.py       PharmacySensor: schedules and emits STOCK_READING messages.
+│   │
+│   └── simulation/                  Simulation orchestration.
+│       ├── __init__.py
+│       └── simulator.py             MedStockSimulator: initialises all agents, runs steps.
+│
+├── ui/                              Graphical user interface (tkinter).
+│   ├── __init__.py
+│   ├── theme.py                     COLORS and FONTS constants for consistent styling.
+│   └── app.py                       MedStockApp: full tkinter UI with 4 panels.
+│
+├── docs/                            Prometheus methodology documentation.
+│   ├── phase1_system_specification.md
+│   ├── phase2_architectural_design.md
+│   ├── phase3_interaction_design.md
+│   ├── phase4_detailed_design.md
+│   └── phase5_report.md
+│
+└── diagrams/                        ASCII art design diagrams.
+    ├── goal_hierarchy.txt
+    ├── system_overview.txt
+    ├── acquaintance_diagram.txt
+    ├── interaction_diagram_scenario1.txt
+    ├── interaction_diagram_scenario2.txt
+    ├── interaction_diagram_scenario3.txt
+    ├── capability_overview_stock_monitor.txt
+    ├── capability_overview_supply_assessment.txt
+    ├── capability_overview_transfer_coordination.txt
+    └── capability_overview_procurement_escalation.txt
 ```
 
 ---
 
 ## Simulation Scenarios
 
-The simulation runs three scenarios across 16 steps (0.4 seconds per step):
+The simulation runs for 20 steps. Four sensor events are scheduled:
 
-**Scenario 1 (Steps 1-7):** Chemical hazardous waste at an abandoned industrial site.
-Two sensors (chemical: 157 ppm, temperature: 134 C) trigger the SurveillanceAgent.
-The AssessmentAgent classifies the incident as HAZARDOUS/CRITICAL.
-EPA and HAZMAT are dispatched. The incident is subsequently escalated after 5 steps with no response.
-
-**Scenario 2 (Steps 5-11):** Construction debris at a roadside.
-Two citizen reports describe rubble and debris at the same location.
-Keyword analysis classifies the incident as NON_HAZARDOUS/MEDIUM.
-The local environmental officer is dispatched. The incident is subsequently escalated.
-
-**Scenario 3 (Steps 7-13):** Air quality degradation at a riverbank.
-Two air quality sensors exceed the AQI threshold by a factor of three.
-A late citizen report corroborates the incident and raises confidence from 0.6 to 0.8.
-EPA and HAZMAT are dispatched. The incident is subsequently escalated.
+| Step | Drug | Ward | Quantity | Severity | Outcome |
+|---|---|---|---|---|---|
+| 1 | Insulin | ICU | 8 units | CRITICAL | Transfer TR-001 from EMERGENCY (60 units) |
+| 3 | Morphine | SURGICAL | 7 mg | HIGH | Transfer denied (controlled); PR-001 escalated at step 8 |
+| 8 | Amoxicillin | SURGICAL | 40 tablets | HIGH | Transfer TR-003 from ICU (75 tablets) |
+| 10 | Paracetamol | GENERAL | 160 tablets | MEDIUM | PR-002 from BasicMeds, confirmed at step 14 |
 
 ---
 
 ## Key Design Decisions
 
-**Why step-based simulation instead of threading?**
-A step-based simulation makes the perceive-decide-act cycle explicit and traceable in the console output. Threading would introduce non-determinism that would obscure the Prometheus design demonstration.
+**Controlled substance policy:** Morphine and other CONTROLLED drugs are never transferred between wards. The TransferCoordinationAgent immediately sends TRANSFER_RESULT(success=False) when it detects a CONTROLLED drug, triggering procurement instead.
 
-**Why separate EvidenceAgent and EnforcementAgent?**
-These agents represent genuinely different organisational concerns: forensic evidence management (chain of custody, evidence integrity) and field enforcement (authority selection, response tracking). Separating them makes the system more maintainable.
+**CRITICAL plan:** When severity is CRITICAL, the SupplyAssessmentAgent sends SHORTAGE_CLASSIFIED to both the transfer and procurement agents simultaneously. The procurement agent holds off (await_transfer_result=True) until it learns whether the transfer succeeded. If it did, no procurement is created.
 
-**Why four agents instead of one?**
-The domain naturally separates into four roles that are loosely coupled. A single agent would conflate detection logic, classification reasoning, evidentiary procedure, and enforcement policy in ways that would make the system harder to understand, test, and modify.
+**Proactive escalation:** The ProcurementEscalationAgent calls _plan_check_and_escalate() every simulation cycle regardless of whether any messages were received. This ensures that overdue procurement orders are always detected.
+
+**Duplicate suppression:** The StockMonitorAgent maintains an alerted_stocks set to avoid sending the same alert twice. The SupplyAssessmentAgent maintains an active_shortages dict keyed by shortage_id to avoid classifying the same shortage twice. The ProcurementEscalationAgent checks both pending_procurements and resolved_shortages before creating a new procurement record.
+
+---
+
+## Prometheus Methodology Mapping
+
+| Prometheus Phase | Implementation |
+|---|---|
+| Phase 1: System Specification | docs/phase1_system_specification.md, scenario data in simulator.py |
+| Phase 2: Architectural Design | src/agents/ (4 agents), src/core/ (message infrastructure), acquaintance_diagram.txt |
+| Phase 3: Interaction Design | Message dataclass, Performative enum, interaction diagram files |
+| Phase 4: Detailed Design | Agent plan methods (_plan_*), belief classes in src/beliefs/, capability diagrams |
+| Phase 5: Report | docs/phase5_report.md |

@@ -1,165 +1,147 @@
 # Phase 2 - Architectural Design
-## WasteWatch: Intelligent Illegal Waste Dumping Detection and Enforcement Coordination System
+## MedStock: Hospital Pharmacy Stock Depletion and Emergency Resupply Coordination
+
+**Student ID:** 11126585
+**Course:** DCIT 403 - Intelligent Agent Systems
+**Methodology:** Prometheus (Padgham and Winikoff, 2004)
 
 ---
 
 ## 1. Agent Types
 
-### How many agents and why?
+The MedStock system contains four agent types. The division of responsibility follows functional lines derived from real hospital pharmacy operations.
 
-The system uses **four distinct agent types**. The decision to use multiple agents rather than a single monolithic agent follows the Prometheus guideline that functionalities which are loosely coupled, address different concerns, or represent different organisational roles should be separated into distinct agents (Padgham & Winikoff, 2004, Chapter 5).
+### 1.1 StockMonitorAgent
 
-| Agent | Count | Rationale |
-|---|---|---|
-| SurveillanceAgent | 1 | Boundary agent between the environment and the rest of the system. Handles all external percepts. |
-| AssessmentAgent | 1 | Domain reasoning agent. Applies classification rules. Isolated from sensing so classification logic can evolve independently. |
-| EvidenceAgent | 1 | Data stewardship agent. Concerned only with collecting, timestamping, and preserving evidence. Separation ensures evidence integrity. |
-| EnforcementAgent | 1 | Action agent. Translates classification decisions into real-world dispatch orders. Manages response tracking and escalation. |
+This agent is the entry point for all environmental data. It receives STOCK_READING messages from the PharmacySensor environment object and performs the first level of reasoning: is this stock level alarming enough to require a response? It computes the stock percentage relative to the reorder threshold, classifies the severity, and sends STOCK_ALERT messages downstream. It maintains an alerted_stocks set so that a stock level already flagged once does not generate repeated alerts even if the sensor continues to report the same low value.
 
-**Justification for four agents over one:**
+**Justification:** A dedicated monitoring agent is appropriate because monitoring is a continuous, reactive task that must be separated from the higher-level classification and decision-making work. Combining monitoring with assessment would create a single point of responsibility for too many concerns.
 
-A single agent approach would conflate four very different types of reasoning: environmental monitoring (reactive, event-driven), domain classification (rule-based deliberation), evidentiary procedure (data gathering and chain-of-custody), and enforcement coordination (goal-directed, monitoring over time). By separating these into four agents, each agent can be designed, modified, and validated independently. The communication protocol between agents also makes the information flow explicit and auditable, which is important for a law enforcement application.
+### 1.2 SupplyAssessmentAgent
+
+This agent receives STOCK_ALERT messages and makes the central classification and routing decision. It determines the drug category (CONTROLLED, ESSENTIAL, STANDARD) and uses the severity level to select among three alternative plans: the CRITICAL plan (parallel transfer and procurement), the HIGH plan (transfer-first), and the MEDIUM plan (procurement watch). This agent is responsible for ensuring that each unique shortage is classified only once.
+
+**Justification:** A dedicated assessment agent is needed because the routing logic is non-trivial and depends on both severity and drug category. Embedding this logic in the monitoring agent or the transfer agent would obscure the decision-making process and make the system harder to extend.
+
+### 1.3 TransferCoordinationAgent
+
+This agent receives SHORTAGE_CLASSIFIED messages and attempts to resolve the shortage through an internal inter-ward transfer. It enforces the controlled substance policy, searches for a suitable donor ward, executes the transfer by updating both ward stock levels, and sends a TRANSFER_RESULT message to inform the ProcurementEscalationAgent of the outcome. All transfer attempts are recorded in the WardDatabase for full auditability.
+
+**Justification:** Transfer coordination involves database operations on ward stock levels and requires awareness of both the shortage ward and all potential donor wards. Separating this from procurement allows the two resolution strategies to operate independently.
+
+### 1.4 ProcurementEscalationAgent
+
+This agent manages the full procurement lifecycle. It receives SHORTAGE_CLASSIFIED messages for MEDIUM cases (direct procurement) and TRANSFER_RESULT messages to know when procurement is needed following a failed transfer. It creates procurement records, tracks them step by step, proactively checks for timeout, and escalates overdue orders. It also handles supplier confirmation events injected by the simulator.
+
+**Justification:** Procurement involves temporal reasoning (how many steps have elapsed since dispatch?) that no other agent performs. This proactive, step-aware behaviour is distinct enough to warrant a dedicated agent.
 
 ---
 
-## 2. Grouping Functionalities
+## 2. Functionality-to-Agent Mapping
 
-The following table maps each functionality defined in Phase 1 to the agent responsible for it.
-
-| Functionality | Assigned Agent | Reasoning |
-|---|---|---|
-| F1 - Monitor sensor network | SurveillanceAgent | Direct environment interface |
-| F2 - Receive citizen reports | SurveillanceAgent | Direct environment interface |
-| F3 - Correlate sensor alerts | SurveillanceAgent | Accumulation of sensor data requires local state |
-| F4 - Correlate citizen reports | SurveillanceAgent | Accumulation of report data requires local state |
-| F5 - Create incident record | SurveillanceAgent | Incident creation follows detection threshold logic |
-| F6 - Track confidence levels | SurveillanceAgent | Confidence depends on all accumulated signals |
-| F7 - Identify hotspots | SurveillanceAgent | Hotspot detection requires location history |
-| F8 - Classify waste type | AssessmentAgent | Classification is domain reasoning, not detection |
-| F9 - Determine severity | AssessmentAgent | Severity requires rule application across sensor values |
-| F10 - Context-conditioned plan selection | AssessmentAgent | Plan selection is an assessment-level decision |
-| F11 - Collect evidence items | EvidenceAgent | Evidence collection is a distinct procedural concern |
-| F12 - Compile evidence package | EvidenceAgent | Package compilation is a distinct procedural concern |
-| F13 - Select enforcement authority | EnforcementAgent | Authority selection depends on dispatch policy |
-| F14 - Dispatch authority | EnforcementAgent | Dispatch is an action taken by the enforcement agent |
-| F15 - Track dispatch status | EnforcementAgent | Status tracking is a persistent enforcement concern |
-| F16 - Detect overdue responses | EnforcementAgent | Timeout logic requires persistent tracking of dispatch time |
-| F17 - Escalate overdue incidents | EnforcementAgent | Escalation is an enforcement-level action |
-| F18 - Update incident status | SurveillanceAgent / EnforcementAgent | Both update status at different pipeline stages |
-| F19 - Produce final incident report | Simulator (external) | Reporting is a simulation output function |
+| Functionality | Agent |
+|---|---|
+| F1, F2, F3, F4: Monitor and classify stock readings | StockMonitorAgent |
+| F5, F6, F7, F8: Classify shortage and select response plan | SupplyAssessmentAgent |
+| F9, F10, F11, F12: Transfer coordination and controlled substance policy | TransferCoordinationAgent |
+| F13, F14, F17, F18: Supplier selection and procurement creation | ProcurementEscalationAgent |
+| F15, F16: Proactive escalation monitoring | ProcurementEscalationAgent |
+| F19: Audit trail | All agents via log_callback |
 
 ---
 
 ## 3. Acquaintance Diagram
 
-The acquaintance diagram shows which agents know about and communicate with each other.
-
 ```
-  +-------------------+         +-------------------+
-  |  SensorNetwork    |         |  CitizenPortal    |
-  |  (Environment)    |         |  (Environment)    |
-  +--------+----------+         +--------+----------+
-           |  SENSOR_ALERT               |  CITIZEN_REPORT
-           |                             |
-           v                             v
-  +---------------------------------------------------+
-  |              SurveillanceAgent                    |
-  |   (Perceives environment, creates incidents)      |
-  +----------------------+----------------------------+
-                         |
-                         | INCIDENT_DETECTED
-                         | INCIDENT_UPDATE
-                         v
-  +---------------------------------------------------+
-  |               AssessmentAgent                     |
-  |   (Classifies waste type and severity)            |
-  +----------+---------------------+-----------------+
-             |                     |
-             | INCIDENT_CLASSIFIED | DISPATCH_REQUEST
-             v                     v
-  +-----------------+   +-------------------------+
-  |  EvidenceAgent  |   |    EnforcementAgent     |
-  |  (Compiles      |   |  (Dispatches authority, |
-  |   evidence)     |   |   tracks response,      |
-  +---------+-------+   |   escalates if overdue) |
-            |           +----------+--------------+
-            | EVIDENCE_PACKAGE     |
-            +--------------------->|
-                                   |
-                                   | RESPONSE_UPDATE
-                                   v
-                        SurveillanceAgent
++---------------------+
+|  PharmacySensor     |
+|  (Environment)      |
++---------------------+
+          |
+          | STOCK_READING
+          v
++---------------------+
+|  StockMonitorAgent  |
++---------------------+
+          |
+          | STOCK_ALERT
+          v
++----------------------+
+|  SupplyAssessment    |
+|       Agent          |
++----------------------+
+       |          |
+       |          |
+       | SHORTAGE | SHORTAGE
+       | CLASSIFIED| CLASSIFIED
+       |           |
+       v           v
++------------+ +--------------------+
+| Transfer   | | Procurement        |
+| Coord.     | | Escalation         |
+| Agent      | | Agent              |
++------------+ +--------------------+
+       |               ^
+       | TRANSFER      |
+       | RESULT        |
+       +---------------+
 ```
 
-**Information flow summary:**
-
-- SurveillanceAgent receives from: SensorNetwork, CitizenPortal, EnforcementAgent
-- SurveillanceAgent sends to: AssessmentAgent
-- AssessmentAgent receives from: SurveillanceAgent
-- AssessmentAgent sends to: EvidenceAgent, EnforcementAgent
-- EvidenceAgent receives from: AssessmentAgent
-- EvidenceAgent sends to: EnforcementAgent
-- EnforcementAgent receives from: AssessmentAgent, EvidenceAgent
-- EnforcementAgent sends to: SurveillanceAgent
+Communication is strictly directional. No agent sends messages back to a higher-level agent except via TRANSFER_RESULT from TransferCoordinationAgent to ProcurementEscalationAgent.
 
 ---
 
 ## 4. Agent Descriptors
 
-### SurveillanceAgent
+### StockMonitorAgent
 
-| Property | Description |
+| Attribute | Detail |
 |---|---|
-| Name | SurveillanceAgent |
-| Responsibilities | Detect incidents from sensor alerts and citizen reports. Correlate multiple signals from the same location. Create and update incident records. Track confidence levels. Record hotspots. |
-| Goals handled | G1 (Detect incidents), G1.1-G1.5 |
-| Plans | handle_sensor_alert, handle_citizen_report, handle_response_update |
-| Beliefs maintained | IncidentDatabase, LocationDatabase (hotspots), pending_sensor_alerts, pending_citizen_reports, dispatched_incident_ids |
-| Percepts | SENSOR_ALERT, CITIZEN_REPORT, RESPONSE_UPDATE |
-| Messages sent | INCIDENT_DETECTED, INCIDENT_UPDATE |
-| Acquaintances | AssessmentAgent (sends to), EnforcementAgent (receives from) |
+| Responsibilities | Monitor stock readings; compute severity; send alerts; suppress duplicates |
+| Goals | G1.1, G1.2, G1.3, G1.4 |
+| Beliefs | DrugDatabase (stock levels, thresholds, drug metadata); alerted_stocks set |
+| Actions | set_stock(); send STOCK_ALERT |
+| Interactions | Receives STOCK_READING from PharmacySensor; sends STOCK_ALERT to SupplyAssessmentAgent |
+
+### SupplyAssessmentAgent
+
+| Attribute | Detail |
+|---|---|
+| Responsibilities | Classify shortages by severity and category; select and execute response plan; prevent duplicate processing |
+| Goals | G2.1, G2.2, G2.3, G2.4 |
+| Beliefs | DrugDatabase (drug category); active_shortages dict keyed by shortage_id |
+| Actions | Register shortage; send SHORTAGE_CLASSIFIED with plan-conditioned routing |
+| Interactions | Receives STOCK_ALERT from StockMonitorAgent; sends SHORTAGE_CLASSIFIED to TransferCoordinationAgent and/or ProcurementEscalationAgent |
+
+### TransferCoordinationAgent
+
+| Attribute | Detail |
+|---|---|
+| Responsibilities | Enforce controlled substance policy; search for donor ward; execute transfer; record outcome |
+| Goals | G3.1, G3.2, G3.3, G3.4, G3.5 |
+| Beliefs | DrugDatabase (all ward stocks); WardDatabase (ward list, transfer records) |
+| Actions | Update ward stocks; create_transfer(); send TRANSFER_RESULT |
+| Interactions | Receives SHORTAGE_CLASSIFIED from SupplyAssessmentAgent; sends TRANSFER_RESULT to ProcurementEscalationAgent |
+
+### ProcurementEscalationAgent
+
+| Attribute | Detail |
+|---|---|
+| Responsibilities | Initiate procurement; track pending orders; proactively escalate overdue orders; confirm deliveries |
+| Goals | G4.1, G4.2, G4.3, G4.4, G5.1, G5.2, G5.3 |
+| Beliefs | SupplierDatabase; pending_procurements dict; resolved_shortages dict; _awaiting_transfer dict |
+| Actions | create_procurement(); mark_escalated(); mark_resolved(); simulate_supplier_confirmation() |
+| Interactions | Receives SHORTAGE_CLASSIFIED from SupplyAssessmentAgent; receives TRANSFER_RESULT from TransferCoordinationAgent; proactive_step() runs every cycle |
 
 ---
 
-### AssessmentAgent
+## 5. System Data Overview
 
-| Property | Description |
-|---|---|
-| Name | AssessmentAgent |
-| Responsibilities | Classify each incident by waste type and severity. Apply classification rules to sensor types and citizen report content. Select context-conditioned plans. |
-| Goals handled | G2 (Classify incidents), G2.1-G2.3 |
-| Plans | assess_incident, handle_update |
-| Beliefs maintained | pending_assessments, classified_incidents, classification_rules |
-| Percepts | INCIDENT_DETECTED, INCIDENT_UPDATE |
-| Messages sent | INCIDENT_CLASSIFIED, DISPATCH_REQUEST |
-| Acquaintances | SurveillanceAgent (receives from), EvidenceAgent (sends to), EnforcementAgent (sends to) |
-
----
-
-### EvidenceAgent
-
-| Property | Description |
-|---|---|
-| Name | EvidenceAgent |
-| Responsibilities | Gather sensor evidence and citizen report evidence for each classified incident. Compile a timestamped evidence package with chain-of-custody record. |
-| Goals handled | G3 (Collect and preserve evidence), G3.1-G3.4 |
-| Plans | collect_evidence |
-| Beliefs maintained | evidence_records, compiled_packages |
-| Percepts | INCIDENT_CLASSIFIED |
-| Messages sent | EVIDENCE_PACKAGE |
-| Acquaintances | AssessmentAgent (receives from), EnforcementAgent (sends to) |
-
----
-
-### EnforcementAgent
-
-| Property | Description |
-|---|---|
-| Name | EnforcementAgent |
-| Responsibilities | Select and dispatch the appropriate enforcement authority. Attach received evidence packages to case files. Track response status. Escalate overdue cases. |
-| Goals handled | G4 (Dispatch authority), G5 (Escalate unresolved), G4.1-G4.3, G5.1-G5.4 |
-| Plans | process_dispatch_request, attach_evidence, escalate |
-| Beliefs maintained | AuthorityDatabase, pending_dispatches, received_evidence, resolved_incidents, case_files |
-| Percepts | DISPATCH_REQUEST, EVIDENCE_PACKAGE |
-| Messages sent | RESPONSE_UPDATE |
-| Acquaintances | AssessmentAgent (receives from), EvidenceAgent (receives from), SurveillanceAgent (sends to) |
+| Data Store | Managed by | Contents |
+|---|---|---|
+| DrugDatabase | StockMonitorAgent, TransferCoordinationAgent | Drug metadata, all ward stock records |
+| WardDatabase | TransferCoordinationAgent | Ward list, all TransferRecords |
+| SupplierDatabase | ProcurementEscalationAgent | Supplier registry, all ProcurementRecords |
+| active_shortages | SupplyAssessmentAgent | Dict of shortage_id to shortage info |
+| pending_procurements | ProcurementEscalationAgent | Dict of shortage_id to procurement tracking |
+| resolved_shortages | ProcurementEscalationAgent | Dict of shortage_id to resolution info |
