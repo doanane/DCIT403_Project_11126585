@@ -1,47 +1,33 @@
-from abc import ABC, abstractmethod
-from src.core.message import Message, Performative
+from collections import deque
 
 
-class Agent(ABC):
-    def __init__(self, name: str, agent_system):
+class Agent:
+    def __init__(self, name, agent_system, log_callback=None):
         self.name = name
         self.agent_system = agent_system
-        self.inbox = []
-        self.beliefs = {}
+        self.inbox = deque()
+        self.log_callback = log_callback
+        self.current_step = 0
 
-    def send(self, receiver: str, performative: Performative, content: dict) -> Message:
-        msg = Message(
-            sender=self.name,
-            receiver=receiver,
-            performative=performative,
-            content=content,
-        )
-        self.agent_system.deliver(msg)
-        return msg
+    def receive(self, message):
+        self.inbox.append(message)
 
-    def perceive(self) -> list:
-        percepts = list(self.inbox)
-        self.inbox.clear()
-        return percepts
+    def send(self, message):
+        self.agent_system.deliver(message)
 
-    def deliberate(self, percepts: list) -> list:
-        intentions = []
-        for percept in percepts:
-            plan = self.select_plan(percept)
-            if plan is not None:
-                intentions.append((plan, percept))
-        return intentions
+    def log(self, text):
+        if self.log_callback:
+            self.log_callback(f"[{self.name}] {text}")
 
-    def act(self, intentions: list):
-        for plan, percept in intentions:
-            plan(percept)
+    def run_cycle(self, current_step):
+        self.current_step = current_step
+        while self.inbox:
+            msg = self.inbox.popleft()
+            self.handle_message(msg)
+        self.proactive_step()
 
-    def run_cycle(self, step: int):
-        percepts = self.perceive()
-        if percepts:
-            intentions = self.deliberate(percepts)
-            self.act(intentions)
+    def handle_message(self, message):
+        pass
 
-    @abstractmethod
-    def select_plan(self, percept):
+    def proactive_step(self):
         pass

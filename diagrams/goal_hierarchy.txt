@@ -1,96 +1,68 @@
-WASTEWATCH - GOAL HIERARCHY DIAGRAM
+MEDSTOCK - GOAL HIERARCHY DIAGRAM
 Prometheus Methodology Artifact
-====================================================================
+Student ID: 11126585 | Course: DCIT 403
 
-G0: Reduce illegal waste dumping through early detection and enforcement
-|
-+-- G1: Detect illegal waste dumping incidents
-|   |
-|   +-- G1.1: Monitor automated sensor network for threshold violations
-|   |         [SurveillanceAgent - SensorMonitoring Capability]
-|   |         Trigger: Sensor reading exceeds safe threshold
-|   |
-|   +-- G1.2: Receive and validate citizen reports
-|   |         [SurveillanceAgent - ReportProcessing Capability]
-|   |         Trigger: Citizen submits report via portal
-|   |
-|   +-- G1.3: Correlate multiple signals from same location
-|   |         [SurveillanceAgent - IncidentManagement Capability]
-|   |         Trigger: Second signal at same location_key
-|   |
-|   +-- G1.4: Track confidence level based on number of confirming signals
-|   |         [SurveillanceAgent - IncidentManagement Capability]
-|   |         Computed: 0.3 per sensor alert + 0.2 per citizen report
-|   |
-|   +-- G1.5: Record known dumping hotspots
-|             [SurveillanceAgent - LocationDatabase]
-|             Trigger: Incident created at location with prior incident
-|
-+-- G2: Classify each incident by waste type and severity
-|   |
-|   +-- G2.1: Determine whether waste is hazardous or non-hazardous
-|   |         [AssessmentAgent - WasteTypeClassification Capability]
-|   |         Plans: hazardous sensor rule, keyword analysis, default
-|   |
-|   +-- G2.2: Determine severity level (low/medium/high/critical)
-|   |         [AssessmentAgent - SeverityDetermination Capability]
-|   |         Based on: sensor value vs threshold ratio
-|   |
-|   +-- G2.3: Apply context-conditioned plan selection
-|             [AssessmentAgent - select_plan method]
-|             Context conditions on sensor_types and report keywords
-|
-+-- G3: Collect and preserve tamper-evident digital evidence
-|   |
-|   +-- G3.1: Record all sensor readings for the incident
-|   |         [EvidenceAgent - EvidenceCollection Capability]
-|   |
-|   +-- G3.2: Record all citizen reports for the incident
-|   |         [EvidenceAgent - EvidenceCollection Capability]
-|   |
-|   +-- G3.3: Record geographic and classification metadata
-|   |         [EvidenceAgent - EvidenceCollection Capability]
-|   |
-|   +-- G3.4: Compile evidence package with chain-of-custody
-|             [EvidenceAgent - PackageCompilation Capability]
-|             Output: EVIDENCE_PACKAGE message to EnforcementAgent
-|
-+-- G4: Dispatch correct enforcement authority for each incident
-|   |
-|   +-- G4.1: Select authority based on waste type and severity
-|   |         [EnforcementAgent - AuthorityDispatch Capability]
-|   |         Policy: HAZARDOUS+CRITICAL -> EPA+HAZMAT
-|   |                 HAZARDOUS          -> EPA
-|   |                 NON_HAZARDOUS+HIGH -> EPA
-|   |                 NON_HAZARDOUS      -> LOCAL_ENV
-|   |
-|   +-- G4.2: Notify authority with location and evidence reference
-|   |         [EnforcementAgent - AuthorityDispatch Capability]
-|   |
-|   +-- G4.3: Confirm dispatch status to SurveillanceAgent
-|             [EnforcementAgent - RESPONSE_UPDATE message]
-|
-+-- G5: Escalate unresolved incidents to higher authorities
-    |
-    +-- G5.1: Track simulation steps elapsed since dispatch
-    |         [EnforcementAgent - EscalationMonitoring Capability]
-    |         Per-step check in check_and_escalate_overdue()
-    |
-    +-- G5.2: Detect when no response in timeout window
-    |         [EnforcementAgent - EscalationMonitoring Capability]
-    |         Timeout: ESCALATION_TIMEOUT_STEPS = 5 steps
-    |
-    +-- G5.3: Alert the regional enforcement unit
-    |         [EnforcementAgent - escalate plan]
-    |         Authority: Greater Accra Regional Enforcement Unit
-    |
-    +-- G5.4: Update case status to escalated
-              [EnforcementAgent - case_files belief update]
+================================================================================
 
-====================================================================
-LEGEND
-  G0 : Top-level system goal
-  G1-G5 : Main sub-goals (assigned to agents)
-  G1.x-G5.x : Leaf goals (implemented as plans or capabilities)
-  [ ] : Implementing agent and capability
-====================================================================
+TOP-LEVEL GOAL
+==============
+Ensure continuous availability of critical pharmaceutical supplies
+across all hospital wards.
+
+  |
+  +-- G1: Monitor drug stock levels across all wards
+  |     |
+  |     +-- G1.1: Receive stock readings from the pharmacy sensor network
+  |     +-- G1.2: Compute stock level as a percentage of reorder threshold
+  |     +-- G1.3: Classify severity (CRITICAL / HIGH / MEDIUM / LOW / OK)
+  |     +-- G1.4: Suppress duplicate alerts for already-alerted stock-ward pairs
+  |
+  +-- G2: Classify shortages by clinical priority and regulatory context
+  |     |
+  |     +-- G2.1: Map shortage to drug category (CONTROLLED / ESSENTIAL / STANDARD)
+  |     +-- G2.2: Select response plan based on severity level
+  |     +-- G2.3: Prevent duplicate classification of the same shortage
+  |     +-- G2.4: Maintain full metadata for all active shortages
+  |
+  +-- G3: Coordinate internal ward transfers for non-controlled drugs
+  |     |
+  |     +-- G3.1: Search all wards for a donor with surplus stock
+  |     +-- G3.2: Calculate safe transfer quantity (max 50% of donor stock)
+  |     +-- G3.3: Update both donor and recipient stock levels after transfer
+  |     +-- G3.4: Record all transfer attempts with full audit trail
+  |     +-- G3.5: Enforce controlled substance policy (no internal transfer)
+  |
+  +-- G4: Initiate emergency procurement from approved suppliers
+  |     |
+  |     +-- G4.1: Select supplier by drug category from supplier registry
+  |     +-- G4.2: Create procurement record with drug, ward, quantity details
+  |     +-- G4.3: Track procurement status (REQUESTED / CONFIRMED / ESCALATED)
+  |     +-- G4.4: Await and process supplier confirmation events
+  |
+  +-- G5: Escalate overdue procurement orders
+        |
+        +-- G5.1: Proactively check elapsed steps for all pending orders
+        +-- G5.2: Escalate procurement when timeout (5 steps) is exceeded
+        +-- G5.3: Update procurement record status and log escalation event
+
+================================================================================
+
+SEVERITY THRESHOLDS
+===================
+  CRITICAL : stock / threshold < 10%   -> G2.2 selects CRITICAL plan
+  HIGH     : stock / threshold < 30%   -> G2.2 selects HIGH plan
+  MEDIUM   : stock / threshold < 50%   -> G2.2 selects MEDIUM plan
+  LOW      : stock / threshold < 75%   -> no alert (monitoring only)
+  OK       : stock / threshold >= 75%  -> no alert
+
+PLAN SELECTION (G2.2)
+=====================
+  CRITICAL -> send SHORTAGE_CLASSIFIED to TransferCoordinationAgent
+              send SHORTAGE_CLASSIFIED to ProcurementEscalationAgent
+              (await_transfer_result = True on procurement message)
+
+  HIGH     -> send SHORTAGE_CLASSIFIED to TransferCoordinationAgent only
+              (transfer-first policy)
+
+  MEDIUM   -> send SHORTAGE_CLASSIFIED to ProcurementEscalationAgent only
+              (procurement watch)

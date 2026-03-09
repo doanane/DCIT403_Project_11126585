@@ -1,216 +1,173 @@
 # Phase 1 - System Specification
-## WasteWatch: Intelligent Illegal Waste Dumping Detection and Enforcement Coordination System
+## MedStock: Hospital Pharmacy Stock Depletion and Emergency Resupply Coordination
 
 **Student ID:** 11126585
 **Course:** DCIT 403 - Intelligent Agent Systems
-**Methodology:** Prometheus (Padgham & Winikoff)
+**Methodology:** Prometheus (Padgham and Winikoff, 2004)
 
 ---
 
 ## 1. Problem Description
 
-### What problem are you solving?
+### What problem are we solving?
 
-Illegal waste dumping is one of the most persistent and damaging environmental crimes. Across Ghana and across the world, individuals and corporations illegally dispose of hazardous chemicals, construction debris, and household waste at roadsides, riverbeds, and abandoned industrial sites. Current detection methods depend almost entirely on sporadic citizen complaints or infrequent patrol schedules. By the time environmental authorities are notified and arrive at a site, significant damage has already occurred, evidence has degraded or been removed, and the offenders are long gone.
+Hospital pharmacies in Ghana and across the developing world face a persistent and often life-threatening operational failure: critical drug stock depletion goes undetected until a nurse or doctor physically discovers an empty shelf during an emergency. By that point, a patient in the ICU may need insulin that the ward ran out of two days ago. The problem is not necessarily one of procurement failure but of information failure. Pharmacy managers rely on manual stock-take processes, handwritten ledgers, and periodic reports that may be hours or days out of date. No mechanism exists to automatically detect a stock fall, assess whether a nearby ward can donate surplus supply, initiate an emergency procurement order, and escalate to hospital administration if the supplier does not confirm delivery.
 
-The WasteWatch system addresses this gap by continuously monitoring an environment through an automated sensor network and a citizen reporting portal. When evidence accumulates beyond a threshold, the system autonomously creates an incident record, classifies the waste type and severity, preserves digital evidence, and dispatches the appropriate enforcement authority, all without human intervention in the detection-to-dispatch loop.
+MedStock addresses this gap by deploying four coordinated intelligent agents that continuously monitor drug stock levels across all wards, classify shortages by clinical severity and drug category, coordinate internal ward transfers when surplus exists, and initiate and track external procurement requests. The system acts without waiting for human observation, producing a faster and more reliable supply chain than any manual process can achieve.
 
-### Why is an agent appropriate?
+### Why is an agent-based approach appropriate?
 
-An agent-based approach is appropriate for several reasons drawn directly from Padgham and Winikoff (2004):
+An agent-based approach is appropriate for this domain for the following reasons drawn from Padgham and Winikoff (2004):
 
-- **Reactivity:** The environment changes continuously. Sensors trigger at unexpected times. Citizen reports arrive asynchronously. A reactive agent can respond immediately to each percept as it arrives rather than waiting for a scheduled batch process.
+**Reactivity:** Drug stock levels change continuously as patients consume medication. Sensor readings arrive asynchronously from multiple wards. Each StockMonitorAgent reading requires an immediate comparison against the reorder threshold and an immediate decision about whether to alert the downstream assessment pipeline. A reactive architecture handles this far better than any scheduled batch job.
 
-- **Proactivity:** Agents do not simply react. The EnforcementAgent proactively monitors whether dispatched authorities have responded, and if they have not, it escalates the case without waiting for a human to notice the delay.
+**Proactivity:** The ProcurementEscalationAgent does not wait to be asked whether an order has been confirmed. Every simulation cycle it proactively inspects all pending procurement records and compares the elapsed steps against the escalation timeout. If a supplier has not confirmed within five steps, the agent escalates the procurement to hospital administration without any external trigger. This goal-directed initiative is a defining characteristic of intelligent agents.
 
-- **Social ability:** A single monolithic system cannot cleanly separate the concerns of detection, assessment, evidence collection, and enforcement. Multiple agents, each with a specific role, communicate through messages to form a coherent pipeline. This mirrors how real-world environmental response organizations are structured, with distinct departments handling surveillance, forensics, and field response.
+**Social ability:** The four agents divide the supply chain problem along functional lines that mirror real hospital departments: pharmacy surveillance, clinical assessment, logistics coordination, and procurement management. They communicate exclusively through structured messages, allowing each agent to operate independently while forming a coherent coordinated pipeline. A single monolithic program cannot achieve this separation of concerns.
 
-- **Situatedness:** Each agent perceives a portion of the real environment (sensor readings, citizen reports, dispatch records) and acts upon it (creating incidents, sending messages, dispatching authorities). The system is embedded in its environment rather than operating in isolation.
+**Situatedness:** The agents perceive drug stock readings from the environment (the PharmacySensor), act upon that environment by updating ward stock levels in the shared database after a transfer, and send messages that trigger supplier actions in the external world. The system is embedded in the hospital operational environment rather than operating in isolation.
 
-### Who are the users and stakeholders?
+### Stakeholders
 
-| Stakeholder | Role |
+| Stakeholder | Role in the system |
 |---|---|
-| Environmental Protection Agency (EPA) | Receives dispatch notifications for hazardous waste incidents |
-| National Hazardous Materials Response Unit (HAZMAT) | Responds to critical chemical or radiation-related dumping |
-| Accra Metropolitan Environmental Officer | Handles local non-hazardous waste enforcement |
-| Greater Accra Regional Enforcement Unit | Acts as escalation authority when primary response is delayed |
-| Citizens | Submit reports through the citizen portal |
-| System Administrators | Monitor simulation health and incident logs |
+| ICU Pharmacist | Needs immediate notification of critical stock depletion for life-sustaining medications |
+| Ward Nurses | Depend on reliable drug availability; benefit from automatic resupply coordination |
+| Hospital Administrator | Receives escalation notices when procurement is overdue |
+| Procurement Officer | Receives automated procurement requests and confirms supplier deliveries |
+| Suppliers (MedPharm, PharmaControl, BasicMeds) | Receive structured resupply orders and confirm or delay fulfilment |
+| Drug Regulatory Authority | Requires that controlled substances (morphine) are never transferred between wards without regulatory clearance |
 
 ---
 
 ## 2. Goal Specification
 
-### Top-Level Goals
+### Top-Level Goal
 
-| Goal ID | Goal Description |
-|---|---|
-| G1 | Detect illegal waste dumping incidents in monitored areas |
-| G2 | Classify each incident by waste type and severity |
-| G3 | Collect and preserve tamper-evident digital evidence |
-| G4 | Dispatch the correct enforcement authority for each incident |
-| G5 | Escalate unresolved incidents to higher authorities |
+Ensure continuous availability of critical pharmaceutical supplies across all hospital wards by automatically detecting shortages, coordinating transfers, initiating procurement, and escalating overdue orders.
 
 ### Sub-Goals
 
-**G1 - Detect illegal waste dumping incidents:**
-- G1.1: Monitor automated sensor network for threshold violations
-- G1.2: Receive and validate citizen reports from the citizen portal
-- G1.3: Correlate multiple signals from the same location into a single incident
-- G1.4: Track confidence levels based on the number of confirming signals
-- G1.5: Record known dumping hotspots to flag repeat locations
+**G1 - Monitor drug stock levels across all wards**
+- G1.1: Receive stock readings from the pharmacy sensor network
+- G1.2: Compute stock level as a percentage of the reorder threshold
+- G1.3: Classify each reading by severity (CRITICAL, HIGH, MEDIUM, LOW, OK)
+- G1.4: Suppress duplicate alerts for the same drug-ward combination
 
-**G2 - Classify each incident:**
-- G2.1: Determine whether the waste is hazardous or non-hazardous
-- G2.2: Determine the severity level (low, medium, high, critical)
-- G2.3: Use context conditions to select the appropriate classification plan
+**G2 - Classify shortages by clinical priority and regulatory context**
+- G2.1: Map each shortage to its drug category (CONTROLLED, ESSENTIAL, STANDARD)
+- G2.2: Select the appropriate response plan based on severity
+- G2.3: Prevent duplicate processing of the same shortage record
+- G2.4: Track all active shortages with full metadata
 
-**G3 - Collect and preserve evidence:**
-- G3.1: Record all sensor readings associated with an incident
-- G3.2: Record all citizen reports associated with an incident
-- G3.3: Record geographic and classification metadata
-- G3.4: Compile all items into a numbered evidence package with chain-of-custody record
+**G3 - Coordinate internal ward transfers for non-controlled drugs**
+- G3.1: Search all wards for a donor ward with sufficient surplus
+- G3.2: Calculate safe transfer quantity that does not deplete the donor ward
+- G3.3: Update both ward stock levels after a successful transfer
+- G3.4: Record every transfer attempt with full audit trail
+- G3.5: Enforce the regulatory policy that controlled substances cannot be transferred internally
 
-**G4 - Dispatch enforcement authority:**
-- G4.1: Select authority based on waste type and severity
-- G4.2: Notify the selected authority with location and evidence reference
-- G4.3: Confirm dispatch status to the SurveillanceAgent
+**G4 - Initiate emergency procurement from approved suppliers**
+- G4.1: Select the appropriate supplier based on drug category
+- G4.2: Create a procurement record with full drug, ward, and quantity details
+- G4.3: Track procurement status (REQUESTED, CONFIRMED, ESCALATED)
+- G4.4: Await supplier confirmation events
 
-**G5 - Escalate unresolved incidents:**
-- G5.1: Track elapsed simulation steps since dispatch
-- G5.2: Detect when no response has been received within the timeout window
-- G5.3: Alert the regional enforcement unit
-- G5.4: Update case status to escalated
+**G5 - Escalate overdue procurement orders**
+- G5.1: Proactively check elapsed steps for every pending procurement
+- G5.2: Mark procurement as ESCALATED when timeout is exceeded
+- G5.3: Notify hospital administration of the escalation
 
 ---
 
 ## 3. Functionalities
 
-The following functionalities describe what the system must do without specifying implementation mechanisms.
-
 | ID | Functionality |
 |---|---|
-| F1 | Monitor sensor network and receive alerts when readings exceed safe thresholds |
-| F2 | Receive and store citizen waste dumping reports |
-| F3 | Correlate multiple sensor alerts from the same location |
-| F4 | Correlate citizen reports from the same location |
-| F5 | Create a unified incident record when detection threshold is reached |
-| F6 | Track confidence levels for each incident |
-| F7 | Identify known dumping hotspots |
-| F8 | Classify waste type using sensor types and citizen report keyword analysis |
-| F9 | Determine incident severity based on sensor readings relative to thresholds |
-| F10 | Apply context-conditioned plan selection for alternative classification paths |
-| F11 | Collect all available evidence for a classified incident |
-| F12 | Compile an evidence package with a chain-of-custody record |
-| F13 | Select the appropriate enforcement authority based on classification |
-| F14 | Dispatch the selected authority with incident details |
-| F15 | Track dispatch status for each incident |
-| F16 | Detect overdue responses using a step-based timeout |
-| F17 | Escalate overdue incidents to the regional enforcement unit |
-| F18 | Update incident status throughout the pipeline |
-| F19 | Produce a final incident report summarising all cases |
+| F1 | Receive drug stock readings from the pharmacy sensor network per simulation step |
+| F2 | Compute stock level percentage relative to reorder threshold |
+| F3 | Classify stock level by severity: CRITICAL (below 10%), HIGH (10-30%), MEDIUM (30-50%) |
+| F4 | Suppress duplicate alerts for stock-ward pairs already alerted in this simulation |
+| F5 | Classify shortage by drug category and select the appropriate response plan |
+| F6 | Route CRITICAL shortages to both transfer and procurement agents simultaneously |
+| F7 | Route HIGH shortages to transfer coordination only (transfer-first policy) |
+| F8 | Route MEDIUM shortages to procurement watching only |
+| F9 | Enforce controlled substance policy (no internal transfer of morphine or other CONTROLLED drugs) |
+| F10 | Search all wards for a surplus donor ward meeting surplus ratio and quantity criteria |
+| F11 | Execute inter-ward stock transfer and update both ward records |
+| F12 | Record every transfer attempt (successful or failed) with full audit trail |
+| F13 | Select supplier by drug category from the supplier registry |
+| F14 | Create procurement record and notify procurement pipeline |
+| F15 | Proactively monitor pending procurements every cycle for timeout |
+| F16 | Escalate overdue procurement to ESCALATED status after five steps |
+| F17 | Receive and process supplier confirmation events |
+| F18 | Track resolved shortages to avoid reprocessing |
+| F19 | Provide a full audit trail of all transfers and procurements via the simulation log |
 
 ---
 
 ## 4. Scenarios
 
-### Scenario 1: Chemical Hazardous Waste at Abandoned Industrial Site
+### Scenario 1: Critical Insulin Shortage in the ICU (Transfer Success)
 
-A sensor at an abandoned industrial site on the Tema Port Road detects elevated toluene levels (157 ppm against a threshold of 50 ppm). In the next simulation step, a temperature sensor at the same location detects 134 degrees C (threshold 45 degrees C), consistent with an exothermic chemical reaction. The SurveillanceAgent accumulates two sensor confirmations, meets the detection threshold, and creates incident INC-A.
+At the start of the simulation, the pharmacy sensor network reports that the ICU ward has only 8 units of Insulin remaining against a reorder threshold of 100 units. This represents 8% of the threshold, which the StockMonitorAgent classifies as CRITICAL. The agent immediately sends a STOCK_ALERT to the SupplyAssessmentAgent.
 
-The AssessmentAgent receives the INCIDENT_DETECTED message. It reads the sensor types (chemical, temperature) and their values and selects the plan for hazardous assessment. It classifies the waste as HAZARDOUS with severity CRITICAL because the chemical reading is three times the threshold and the temperature reading exceeds 120 degrees C.
+The SupplyAssessmentAgent classifies the shortage as CRITICAL with category ESSENTIAL. Following the CRITICAL plan, it sends a SHORTAGE_CLASSIFIED message to both the TransferCoordinationAgent and the ProcurementEscalationAgent simultaneously. The message to the ProcurementEscalationAgent includes the flag await_transfer_result=True, instructing it to hold off on procurement until the transfer outcome is known.
 
-The EvidenceAgent receives INCIDENT_CLASSIFIED and compiles an evidence package containing both sensor readings, the geographic location record, and the assessment metadata.
+The TransferCoordinationAgent searches all wards for a donor. It finds that the EMERGENCY ward holds 120 units of Insulin, giving a surplus ratio of 1.2, which exceeds the 0.5 threshold. It transfers 60 units from EMERGENCY to ICU, updates both ward stock levels, and sends a TRANSFER_RESULT(success=True) to the ProcurementEscalationAgent. On receiving the success message, the ProcurementEscalationAgent marks the shortage as resolved without initiating any procurement. The ICU shortage is resolved at step 1.
 
-The EnforcementAgent receives the DISPATCH_REQUEST and the EVIDENCE_PACKAGE. It selects both the Ghana EPA and the National Hazardous Materials Response Unit based on the HAZARDOUS/CRITICAL classification. It dispatches both authorities and notifies the SurveillanceAgent.
+### Scenario 2: Morphine CRITICAL Shortage in Surgical Ward (Controlled Substance Escalation)
 
-In the next step, a citizen submits a report describing trucks unloading metal drums at night with a strong chemical smell. The SurveillanceAgent correlates this with the existing incident, raising confidence from 0.6 to 0.8.
+At step 3, the sensor network reports 7 mg of Morphine remaining in the Surgical Ward against a threshold of 50 mg (14% of threshold). This falls in the HIGH severity band. The StockMonitorAgent sends a STOCK_ALERT to the SupplyAssessmentAgent, which classifies the shortage as HIGH with category CONTROLLED. The HIGH plan routes the shortage to the TransferCoordinationAgent only.
 
-After five simulation steps with no response received, the EnforcementAgent detects the overdue status and escalates the case to the Greater Accra Regional Enforcement Unit.
+The TransferCoordinationAgent recognises that Morphine is a CONTROLLED drug. Regulatory policy prohibits internal transfer of controlled substances between wards. It immediately sends TRANSFER_RESULT(success=False, reason=controlled_substance_policy) to the ProcurementEscalationAgent.
 
----
+On receiving the failed transfer, the ProcurementEscalationAgent initiates procurement from PharmaControl Ltd, the designated controlled-substance supplier, creating procurement record PR-001. Because no supplier confirmation arrives, the ProcurementEscalationAgent escalates the procurement at step 8, five steps after it was dispatched. The shortage status becomes ESCALATED.
 
-### Scenario 2: Non-Hazardous Construction Waste at Roadside
+### Scenario 3: Multi-Drug Shortage (Transfer Success and Procurement Confirmation)
 
-A citizen report describes a large pile of construction rubble and broken concrete at a roadside clearing on the Accra-Kumasi Highway. The SurveillanceAgent stores the report but waits for a second confirmation. One step later, a second citizen confirms the same location, adding that mattresses and garbage bags were added overnight.
+At step 8, Amoxicillin in the Surgical Ward is reported at 40 tablets against a threshold of 200 tablets (20%, HIGH severity). The SupplyAssessmentAgent routes this to the TransferCoordinationAgent, which finds the ICU ward holds 150 tablets with a surplus ratio of 0.75. A transfer of 75 tablets is completed (TR-003), resolving the shortage.
 
-The SurveillanceAgent reaches the citizen report threshold, creates incident INC-B, and sends INCIDENT_DETECTED to the AssessmentAgent.
-
-The AssessmentAgent reads the citizen report descriptions. It finds no chemical or radiation sensor types. It performs keyword analysis on the report texts and finds high-scoring solid waste keywords (rubble, concrete, construction, debris). It selects the non-hazardous assessment plan and classifies the waste as NON_HAZARDOUS with severity MEDIUM because there are two confirming reports but no sensor data.
-
-The EvidenceAgent collects both citizen reports (one with a photo) and compiles the evidence package. The EnforcementAgent selects the Accra Metropolitan Environmental Officer as the appropriate local authority for a non-hazardous medium-severity case. The case is dispatched and later escalated when no response is received.
-
----
-
-### Scenario 3: Air Quality Degradation at Riverbank
-
-Two air quality sensors at the Densu River South Bank both exceed the AQI threshold of 100, reporting 310 and 290 respectively. The SurveillanceAgent detects the double confirmation and creates incident INC-C.
-
-The AssessmentAgent identifies the air_quality sensor type as hazardous by its classification rules. The readings are 3.1 and 2.9 times the threshold, placing severity at CRITICAL. The incident is classified as HAZARDOUS/CRITICAL.
-
-The EvidenceAgent compiles the two sensor readings. Shortly after, a citizen report arrives describing foul-smelling liquid entering the river and dead fish near the bank, further corroborating the incident. The SurveillanceAgent correlates this report with INC-C, raising confidence from 0.6 to 0.8.
-
-After five steps with no authority response, the EnforcementAgent escalates to the Regional Enforcement Unit. This scenario demonstrates the system's ability to handle environmental contamination at a water source, which carries additional ecological urgency.
-
----
-
-### Scenario 4: Single Sensor Alert (Insufficient Evidence)
-
-A single chemical sensor fires at a location. The SurveillanceAgent stores the alert but no second sensor confirmation arrives and no citizen report is filed. The SurveillanceAgent notes the pending alert but does not create an incident. No messages are sent to downstream agents. The system waits for additional confirming evidence, demonstrating conservative behaviour to avoid false positive dispatches.
-
----
-
-### Scenario 5: Late-Arriving Citizen Report Corroborating Active Incident
-
-An incident has already been created based on sensor data and dispatched to authorities. A citizen report arrives later describing activity consistent with the already-detected incident. The SurveillanceAgent recognises the location as matching an active incident and correlates the new report directly with it, updating the confidence score. The updated confidence is forwarded to the AssessmentAgent via INCIDENT_UPDATE so the assessment record remains accurate.
+At step 10, Paracetamol in the General Ward is reported at 160 tablets against a threshold of 500 tablets (32%, MEDIUM severity). The SupplyAssessmentAgent routes this directly to the ProcurementEscalationAgent, which creates procurement record PR-002 with BasicMeds Supplies. At step 14, a supplier confirmation event arrives and PR-002 is marked CONFIRMED, demonstrating the full procurement confirmation cycle.
 
 ---
 
 ## 5. Environment Description
 
-### What environment does the agent operate in?
+### What environment does the agent system operate in?
 
-The WasteWatch system is situated in a monitored geographic environment consisting of designated surveillance zones. Each zone has:
+The MedStock system operates in a hospital pharmacy environment modelled as a network of five wards (ICU, EMERGENCY, SURGICAL, MATERNITY, GENERAL), each holding stock of five drugs. The environment includes:
 
-- A fixed sensor network with sensors of different types (chemical, temperature, air quality, radiation)
-- Public access to the citizen reporting portal
-- Known authority jurisdictions and contact channels
+- A sensor network (PharmacySensor) that emits stock readings at scheduled steps
+- A shared drug stock database reflecting current stock levels in each ward
+- A supplier registry with three approved suppliers
+- A regulatory policy that prevents internal transfer of controlled substances
 
 The environment is:
-- **Partially observable:** Agents perceive only what sensors and citizens report. Unknown dumping sites generate no percepts.
-- **Non-deterministic:** The timing and content of sensor alerts and citizen reports cannot be predicted.
-- **Dynamic:** The environment changes over time. Sensor readings change. More waste may be added to a site. Authorities may or may not respond.
-- **Discrete and event-driven:** The simulation advances in steps, with events arriving at scheduled steps.
+- **Partially observable:** Agents see only the stocks and events the sensor emits. Wards with no sensor events remain at their initial stock levels.
+- **Dynamic:** Stock levels change when transfers are executed. The sensor network emits new readings at scheduled steps.
+- **Event-driven and discrete:** The simulation advances in steps. Sensor events, transfer results, and supplier confirmations are the key events.
 
-### What does the agent perceive?
+### What do agents perceive?
 
 | Percept | Description | Received by |
 |---|---|---|
-| SENSOR_ALERT | A structured message from a sensor containing type, value, unit, threshold, and location | SurveillanceAgent |
-| CITIZEN_REPORT | A structured message from the citizen portal containing location, description, photo flag | SurveillanceAgent |
-| INCIDENT_DETECTED | A message from SurveillanceAgent describing a newly confirmed incident | AssessmentAgent |
-| INCIDENT_UPDATE | A message from SurveillanceAgent with updated confidence for a known incident | AssessmentAgent |
-| INCIDENT_CLASSIFIED | A message from AssessmentAgent with waste type and severity | EvidenceAgent |
-| DISPATCH_REQUEST | A message from AssessmentAgent requesting authority dispatch | EnforcementAgent |
-| EVIDENCE_PACKAGE | A message from EvidenceAgent containing compiled evidence | EnforcementAgent |
-| RESPONSE_UPDATE | A message from EnforcementAgent to SurveillanceAgent with dispatch confirmation | SurveillanceAgent |
+| STOCK_READING | Drug ID, ward ID, quantity, step from PharmacySensor | StockMonitorAgent |
+| STOCK_ALERT | Drug, ward, severity, quantity needed, step | SupplyAssessmentAgent |
+| SHORTAGE_CLASSIFIED | Full shortage record with severity, category, drug, ward | TransferCoordinationAgent, ProcurementEscalationAgent |
+| TRANSFER_RESULT | Success flag, shortage ID, reason, transfer details | ProcurementEscalationAgent |
 
-### What can the agent act upon?
+### What can agents act upon?
 
 | Action | Agent | Description |
 |---|---|---|
-| Create incident record | SurveillanceAgent | Creates Incident object in IncidentDatabase |
-| Update incident record | SurveillanceAgent | Adds correlated reports or updates status |
-| Send INCIDENT_DETECTED | SurveillanceAgent | Sends message to AssessmentAgent |
-| Send INCIDENT_UPDATE | SurveillanceAgent | Sends confidence update to AssessmentAgent |
-| Classify incident | AssessmentAgent | Updates classified_incidents belief |
-| Send INCIDENT_CLASSIFIED | AssessmentAgent | Sends classification to EvidenceAgent |
-| Send DISPATCH_REQUEST | AssessmentAgent | Sends dispatch order to EnforcementAgent |
-| Collect evidence | EvidenceAgent | Gathers sensor and report evidence items |
-| Compile evidence package | EvidenceAgent | Creates timestamped, numbered package |
-| Send EVIDENCE_PACKAGE | EvidenceAgent | Sends package to EnforcementAgent |
-| Select authority | EnforcementAgent | Queries AuthorityDatabase for matching authority |
-| Dispatch authority | EnforcementAgent | Records dispatch and prints dispatch action |
-| Send RESPONSE_UPDATE | EnforcementAgent | Confirms dispatch status to SurveillanceAgent |
-| Escalate incident | EnforcementAgent | Dispatches regional authority when overdue |
+| Set stock level | StockMonitorAgent | Updates DrugDatabase with new sensor reading |
+| Send STOCK_ALERT | StockMonitorAgent | Notifies SupplyAssessmentAgent of detected shortage |
+| Register active shortage | SupplyAssessmentAgent | Stores shortage record in active_shortages dict |
+| Send SHORTAGE_CLASSIFIED | SupplyAssessmentAgent | Routes shortage to correct downstream agents |
+| Update ward stock | TransferCoordinationAgent | Modifies both donor and recipient stock after transfer |
+| Create transfer record | TransferCoordinationAgent | Writes TransferRecord to WardDatabase |
+| Send TRANSFER_RESULT | TransferCoordinationAgent | Notifies ProcurementEscalationAgent of outcome |
+| Create procurement record | ProcurementEscalationAgent | Writes ProcurementRecord to SupplierDatabase |
+| Escalate procurement | ProcurementEscalationAgent | Changes status to ESCALATED in procurement record |
+| Mark shortage resolved | ProcurementEscalationAgent | Moves shortage from active to resolved_shortages |

@@ -1,72 +1,50 @@
 # Phase 5 - Implementation Report
-## WasteWatch: Intelligent Illegal Waste Dumping Detection and Enforcement Coordination System
+## MedStock: Hospital Pharmacy Stock Depletion and Emergency Resupply Coordination
 
 **Student ID:** 11126585
 **Course:** DCIT 403 - Intelligent Agent Systems
-**Word count:** approximately 680 words
+**Methodology:** Prometheus (Padgham and Winikoff, 2004)
 
 ---
 
-## Problem Domain and Justification
+## Implementation Report
 
-Illegal waste dumping is a persistent environmental and public health problem. Enforcement agencies typically learn about dumping only after a citizen complains, often days after the event. Evidence has degraded, offenders have left, and remediation costs are far higher than they would have been with early detection. WasteWatch is designed to close this gap by providing a continuously monitoring, autonomously reasoning agent system that detects incidents from sensor data and citizen reports, classifies them, preserves evidence, and dispatches the correct authority, without requiring a human to watch a screen.
+### Platform and Language Justification
 
-This domain is genuinely agent-appropriate. It is reactive (sensors fire unpredictably), proactive (the system must escalate without being told to), and social (distinct organisational roles such as environmental assessment, forensic evidence management, and enforcement coordination map naturally to distinct agents). A traditional procedural program could not reasonably handle the asynchronous, event-driven nature of the environment without becoming an agent system by another name.
+MedStock is implemented entirely in Python 3 using the standard library only. Python was chosen for its readability, its support for dataclasses and enums which directly map to the belief structures defined in Phase 4, and its tkinter module which provides a cross-platform graphical user interface without any external dependencies. The decision to restrict the implementation to the standard library was deliberate: it ensures that the system can be run on any university laboratory computer without requiring a package manager, a virtual environment with third-party packages, or an internet connection. The standard library provides everything needed for agent communication (deque-based mailboxes), data modelling (dataclasses, enums), and the user interface (tkinter, ttk).
 
----
+The Prometheus methodology does not prescribe a specific language or agent framework. Padgham and Winikoff (2004) describe Prometheus in terms of design artefacts, specifically system specification, architectural design, interaction design, and detailed design, all of which can be implemented in any sufficiently expressive language. Python satisfies these requirements and adds practical advantages for a course project: rapid iteration, clear syntax, and a self-contained deployment.
 
-## Platform and Language Justification
+### Mapping from Prometheus Design to Implementation
 
-The implementation uses Python 3 with no external libraries beyond the Python standard library. Python was chosen because:
+The Phase 1 system specification defined the top-level goal, five sub-goal groups, nineteen functionalities, and three simulation scenarios. All nineteen functionalities are implemented. The three scenarios produce the exact outcomes described in Phase 1: Scenario 1 (Insulin ICU) resolves via transfer TR-001 at step 1; Scenario 2 (Morphine SURGICAL) escalates procurement PR-001 at step 8; Scenario 3a (Amoxicillin SURGICAL) resolves via transfer TR-003 at step 8; Scenario 3b (Paracetamol GENERAL) confirms procurement PR-002 at step 14.
 
-- The standard library provides all the data structures needed (dataclasses, uuid, time, queue) without introducing dependency complexity.
-- Python's class hierarchy supports the abstract base class pattern used for the Agent superclass, which directly mirrors the Prometheus notion of a generic agent with specialised subtypes.
-- The language is widely understood and the implementation can be read and evaluated without installing anything beyond Python.
+The Phase 2 architectural design identified four agent types and their acquaintance relationships. These map directly to four Python classes in src/agents/: StockMonitorAgent, SupplyAssessmentAgent, TransferCoordinationAgent, and ProcurementEscalationAgent. Each inherits from the base Agent class in src/core/agent.py, which provides the inbox deque, the send/receive interface, the log_callback mechanism, and the run_cycle method that the MedStockSimulator calls in the correct order each step.
 
-The implementation uses a synchronous, step-based simulation rather than threading. This was a deliberate design choice: threading introduces non-determinism that would obscure the perceive-decide-act cycle in the output. The step-based model makes each agent's cycle explicit and traceable, which better demonstrates the Prometheus design.
+The Phase 3 interaction design specified seven message performatives and the content dictionaries for each. These are implemented in src/core/message.py as a Performative enum and a Message dataclass. The interaction diagrams in Phase 3 map directly to the execution trace produced when the simulation runs, which can be verified by reading the Activity Log in the UI.
 
----
+The Phase 4 detailed design specified capabilities, plans with context conditions, belief structures, and percept/action tables. The context conditions for plan selection in SupplyAssessmentAgent correspond to the if/elif chains in _plan_classify_shortage(). The ControlledDenialPlan and TransferSearchPlan in TransferCoordinationAgent are implemented as the two branches of _plan_coordinate_transfer(). The ProactiveEscalation capability is implemented in proactive_step() which the base class calls after processing the inbox. The belief structures (DrugDatabase, WardDatabase, SupplierDatabase) are implemented as Python classes in src/beliefs/.
 
-## Mapping from Prometheus Design to Implementation
+### How Each Phase Is Reflected in Code
 
-The implementation maps directly and consistently to the Phase 1 through Phase 4 design artifacts.
+Phase 1 produced the environment description including the five drugs, five wards, three suppliers, and the sensor schedule. These appear verbatim in MedStockSimulator._setup_drugs(), _setup_wards(), _setup_suppliers(), _setup_initial_stock(), and _schedule_sensor_events() in src/simulation/simulator.py.
 
-**Agents** in the design correspond to Python classes that extend the abstract `Agent` base class in `src/core/agent.py`. Each agent class is in its own file under `src/agents/`.
+Phase 2 produced the agent type list and acquaintance diagram. The AgentSystem class in src/core/agent_system.py implements the message routing layer. Agents register with the system by name and send messages by recipient name. The acquaintance relationships are enforced by hard-coded recipient strings in each agent's send() calls.
 
-**Goals** are implemented as the motivating logic of each agent's plan set. The SurveillanceAgent's goal to detect incidents is expressed in `_plan_handle_sensor_alert` and `_plan_handle_citizen_report`. The EnforcementAgent's goal to escalate unresolved cases is expressed in `check_and_escalate_overdue` and `_plan_escalate`.
+Phase 3 produced the interaction diagrams. These are verified at runtime by inspecting the simulation log, which shows each STOCK_READING, STOCK_ALERT, SHORTAGE_CLASSIFIED, and TRANSFER_RESULT in chronological order.
 
-**Percepts** are implemented as `Message` objects delivered to each agent's `inbox` list. The `perceive()` method in the base class drains the inbox at the start of each cycle, returning the list of percepts for that step.
+Phase 4 produced the detailed plan logic. The most complex plan is _plan_coordinate_transfer() in TransferCoordinationAgent, which iterates all wards, computes surplus ratios, selects a donor, calculates a safe transfer quantity, updates two stock records, creates a transfer record, and sends a result message. This corresponds exactly to the TransferSearchPlan described in Phase 4.
 
-**The agent execution cycle** (perceive, decide, act) is implemented in `run_cycle()` in `src/core/agent.py`. Each call to `run_cycle()` calls `perceive()` to collect percepts, `deliberate()` to select plans using `select_plan()`, and `act()` to execute the selected plans. The simulation calls `run_cycle()` for each agent in each step.
+### Challenges and Limitations
 
-**Plan selection** uses the `select_plan()` method, which maps message performatives to plan handler methods. This implements the Prometheus concept of plan selection based on the triggering event. Context-conditioned alternative plan selection occurs inside `_determine_waste_type()` in the AssessmentAgent, where the selected internal sub-procedure depends on which sensor types and keywords are present in the current percept.
+The most significant design challenge was the handling of CRITICAL shortages where both the TransferCoordinationAgent and ProcurementEscalationAgent receive SHORTAGE_CLASSIFIED simultaneously. The procurement agent must not initiate procurement until it knows whether the transfer succeeded, but it also must not block waiting for the result. This was resolved using a simple _awaiting_transfer dictionary: the agent stores the classified content when it receives SHORTAGE_CLASSIFIED with await_transfer_result=True, and only calls _initiate_procurement() when the subsequent TRANSFER_RESULT arrives with success=False.
 
-**Beliefs** are Python dictionaries stored in the `self.beliefs` dictionary of each agent. Structured data types (Incident, SensorAlert, CitizenReport, Authority, DispatchRecord) are defined as Python dataclasses in the `src/beliefs/` module, mirroring the Prometheus data descriptors.
+A second challenge was the escalation timing. The escalation timeout counts from dispatch_step, which is the value of current_step when _initiate_procurement() is called. Since all agents run in a fixed order within each simulation step (StockMonitor, SupplyAssessment, TransferCoord, Procurement), the dispatch_step for a morphine procurement initiated at step 3 is indeed 3. The escalation check at step 8 correctly computes 8-3=5 which equals the timeout.
 
-**Messages** are implemented as the `Message` dataclass in `src/core/message.py`. Each message has a sender, receiver, performative (from the `Performative` enum), and a content dictionary. The `AgentSystem` class acts as the message router.
+The primary limitation of the implementation is that it operates in a closed simulation environment. The PharmacySensor fires pre-scheduled events rather than receiving live data from a real pharmacy system. The supplier confirmation at step 14 is injected directly by the simulator rather than arriving from an external API. Extending MedStock to connect to a real hospital information system would require replacing PharmacySensor with a network-connected sensor adapter and replacing the confirmation injection with a webhook listener. These extensions are architecturally straightforward given the separation of concerns enforced by the agent design.
 
-**Interactions** follow the diagrams in Phase 3 exactly. The SurveillanceAgent always sends first. The AssessmentAgent sends to both EvidenceAgent and EnforcementAgent in parallel. The EvidenceAgent sends to EnforcementAgent. EnforcementAgent closes the loop back to SurveillanceAgent.
+A secondary limitation is that the simulation runs for a fixed 20 steps. Extending this to a continuous-running system would require converting the step-based loop into an event loop driven by real-time sensor data. The base Agent class already supports this extension since run_cycle() can be called at any interval.
 
----
+### Conclusion
 
-## Simulation Scenarios
-
-The simulation runs three scenarios across 16 steps.
-
-**Scenario 1** demonstrates a hazardous chemical waste incident triggered by two sensors (chemical and temperature) at an abandoned industrial site. The system classifies it as HAZARDOUS/CRITICAL and dispatches both the EPA and the Hazmat unit. A late citizen report raises confidence from 0.6 to 0.8. After five steps with no authority response, the case is escalated to the Greater Accra Regional Enforcement Unit.
-
-**Scenario 2** demonstrates a non-hazardous waste incident triggered by two citizen reports describing construction debris. The system classifies it as NON_HAZARDOUS/MEDIUM and dispatches the local environmental officer. The case is subsequently escalated when no response is received.
-
-**Scenario 3** demonstrates an air quality incident at a riverbank triggered by two air quality sensors both exceeding the AQI threshold by a factor of three. A citizen report describing river contamination and dead fish corroborates the incident and raises confidence. The case is classified as HAZARDOUS/CRITICAL and escalated after the timeout.
-
----
-
-## Challenges and Limitations
-
-The primary challenge was designing the plan selection logic for the AssessmentAgent to handle ambiguous inputs without external classification libraries. The implemented solution uses a priority-ordered rule table (sensor types first, keyword analysis second, defaults last) which correctly classifies all three simulation scenarios. A real deployment would benefit from a trained classifier.
-
-A second challenge was implementing escalation in a way that is both deterministic (for simulation readability) and realistic. The step-based timeout (ESCALATION_TIMEOUT_STEPS = 5) achieves this cleanly.
-
-The system has two significant limitations in its current form. First, the sensor network and citizen report system are simulated using a fixed schedule. A real deployment would require interfaces to actual IoT sensor APIs and a web-based citizen portal. Second, the system has no feedback loop for authority response: in the simulation, authorities never actually respond, so all cases eventually escalate. A production system would require a two-way communication channel with field units.
-
-Despite these limitations, the implementation faithfully demonstrates the complete Prometheus pipeline from percept to enforcement action and correctly embodies the intelligent agent properties of reactivity, proactivity, and social ability as defined by Padgham and Winikoff (2004).
+MedStock demonstrates that the Prometheus methodology produces a coherent, verifiable, and extensible multi-agent system design. The four-phase design process from system specification through detailed design produced a direct mapping to the Python implementation with no design decisions left unaccounted for. The resulting system correctly handles all three simulation scenarios, enforces the controlled substance regulatory policy, performs proactive escalation monitoring every cycle, and provides a professional graphical interface for visualising and interacting with the simulation in real time.

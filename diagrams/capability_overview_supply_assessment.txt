@@ -1,0 +1,82 @@
+MEDSTOCK - CAPABILITY OVERVIEW: SupplyAssessmentAgent
+Prometheus Methodology Artifact
+Student ID: 11126585 | Course: DCIT 403
+
+================================================================================
+
+AGENT: SupplyAssessmentAgent
+ROLE:  Classification and routing agent. Selects the appropriate response plan
+       based on shortage severity and drug category.
+
+================================================================================
+
+PERCEPTS
+========
+  [STOCK_ALERT]
+    - drug_id, ward_id, current_stock, reorder_threshold
+    - severity : str (CRITICAL / HIGH / MEDIUM)
+    - quantity_needed : float
+    - step : int
+  Source: StockMonitorAgent
+
+BELIEFS
+=======
+  DrugDatabase
+    - get_drug(drug_id) -> Drug with .category field
+  active_shortages : dict[shortage_id -> shortage_info dict]
+    - shortage_id = drug_id + "_" + ward_id
+
+CAPABILITIES AND PLANS
+======================
+
+  +------------------------------------+
+  |   Capability: ClassifyShortage     |
+  |------------------------------------|
+  | Trigger: STOCK_ALERT               |
+  | Plan: _plan_classify_shortage()    |
+  +------------------------------------+
+            |
+            v
+  1. shortage_id = drug_id + "_" + ward_id
+            |
+            v
+  2. [Duplicate check]
+     Is shortage_id in active_shortages?
+       YES -> return (no duplicate processing)
+       NO  -> continue
+            |
+            v
+  3. drug = drug_db.get_drug(drug_id)
+     category = drug.category.value
+     Build shortage_info dict
+     active_shortages[shortage_id] = shortage_info
+            |
+            v
+  4. [Plan selection based on severity]
+
+     +------------------+------------------+------------------+
+     | CRITICAL plan    | HIGH plan        | MEDIUM plan      |
+     |------------------|------------------|------------------|
+     | Send to          | Send to          | Send to          |
+     | TransferCoord.   | TransferCoord.   | Procurement      |
+     | AND              | ONLY             | Escalation       |
+     | ProcurementEscal.| (transfer-first) | ONLY             |
+     | (await=True on   |                  | (procurement     |
+     | procurement msg) |                  | watch)           |
+     +------------------+------------------+------------------+
+
+ACTIONS
+=======
+  Register in active_shortages
+  Send SHORTAGE_CLASSIFIED to TransferCoordinationAgent (CRITICAL or HIGH)
+  Send SHORTAGE_CLASSIFIED to ProcurementEscalationAgent (CRITICAL or MEDIUM)
+    - CRITICAL: includes await_transfer_result=True flag
+    - MEDIUM: no await flag, immediate procurement
+
+SHORTAGE_CLASSIFIED CONTENT
+============================
+  shortage_id, drug_id, drug_name, ward_id, severity, category,
+  current_stock, reorder_threshold, quantity_needed, step,
+  [await_transfer_result: bool (only for CRITICAL to procurement agent)]
+
+================================================================================

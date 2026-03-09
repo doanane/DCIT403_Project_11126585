@@ -1,92 +1,62 @@
-WASTEWATCH - INTERACTION DIAGRAM: SCENARIO 1
-Chemical Hazardous Waste at Abandoned Industrial Site (LOC-A)
-Prometheus Methodology Artifact - Chapter 6.1
-====================================================================
+MEDSTOCK - INTERACTION DIAGRAM: SCENARIO 1
+Insulin ICU Critical Shortage - Transfer Success
+Student ID: 11126585 | Course: DCIT 403
 
-Actors: SensorNetwork, CitizenPortal, SurveillanceAgent,
-        AssessmentAgent, EvidenceAgent, EnforcementAgent
+================================================================================
 
-SENSOR  CITIZEN  SURVEIL  ASSESS  EVIDENCE  ENFORCE
-NET     PORTAL   LANCE    MENT    AGENT     MENT
-|       |        |        |       |         |
-| SA-001|        |        |       |         |
-| CHEM  |        |        |       |         |   STEP 1
-| 157ppm|        |        |       |         |
-|------>| SENSOR_ALERT    |       |         |
-|       |------->|        |       |         |
-|       |        | store  |       |         |
-|       |        | count=1|       |         |
-|       |        | wait   |       |         |
-|       |        |        |       |         |
-| SA-002|        |        |       |         |
-| TEMP  |        |        |       |         |   STEP 2
-| 134C  |        |        |       |         |
-|------>| SENSOR_ALERT    |       |         |
-|       |------->|        |       |         |
-|       |        | count=2|       |         |
-|       |        | CREATE |       |         |
-|       |        | INC-A  |       |         |
-|       |        |        |       |         |
-|       |        | INCIDENT_DETECTED        |
-|       |        | (INC-A, LOC-A,  |        |
-|       |        | sensors=[C,T],  |        |
-|       |        | confidence=0.6) |        |
-|       |        |------->|       |         |
-|       |        |        | ASSESS|         |
-|       |        |        | HAZARD|         |
-|       |        |        | /CRIT |         |
-|       |        |        |       |         |
-|       |        |        | INCIDENT_CLASSIFIED
-|       |        |        | (INC-A, HAZARD, |
-|       |        |        |  CRITICAL)      |
-|       |        |        |------>|         |
-|       |        |        |       | COLLECT |
-|       |        |        |       | 4 items |
-|       |        |        | DISPATCH_REQUEST|
-|       |        |        | (INC-A, HAZARD, |
-|       |        |        |  CRITICAL)      |
-|       |        |        |-------+-------->|
-|       |        |        |       |         | SELECT
-|       |        |        |       |         | EPA +
-|       |        |        |       |         | HAZMAT
-|       |        |        |       | EVIDENCE_PACKAGE
-|       |        |        |       | (EP-001, INC-A)
-|       |        |        |       |-------->|
-|       |        |        |       |         | ATTACH
-|       |        |        |       |         | EVIDENCE
-|       |        |        |       |         | PRINT
-|       |        |        |       |         | CASE SUMMARY
-|       |        |        |       |         |
-|       |        | RESPONSE_UPDATE          |
-|       |        | (INC-A, dispatched)      |
-|       |        |<-------------------------|
-|       |        | update |       |         |
-|       |        | status |       |         |
-|       |        |        |       |         |
-| CR-001|        |        |       |         |   STEP 3
-| CITIZEN        |        |       |         |
-| REPORT |       |        |       |         |
-|       |------->|        |       |         |
-|       |        | CORREL |       |         |
-|       |        | to INC-A       |         |
-|       |        | conf=0.8       |         |
-|       |        | INCIDENT_UPDATE|         |
-|       |        | (INC-A,conf=0.8)         |
-|       |        |------->|       |         |
-|       |        |        | UPDATE|         |
-|       |        |        | BELIEF|         |
-|       |        |        |       |         |
-[STEP 7 - 5 steps after evidence attached]  |
-|       |        |        |       |         |
-|       |        |        |       |         | TIMEOUT
-|       |        |        |       |         | DETECTED
-|       |        |        |       |         | ESCALATE
-|       |        |        |       |         | -> REGIONAL
-|       |        |        |       |         | case status
-|       |        |        |       |         | = escalated
-|       |        |        |       |         |
+Scenario: At step 1, the ICU ward has only 8 units of Insulin (8% of threshold).
+          The system detects the CRITICAL shortage, finds surplus in EMERGENCY (120 units),
+          and transfers 60 units. No procurement is needed.
 
-====================================================================
-OUTCOME: INC-A classified HAZARDOUS/CRITICAL, EPA + HAZMAT dispatched,
-         subsequently escalated to Greater Accra Regional Enforcement Unit
-====================================================================
+================================================================================
+
+  PharmacySensor   StockMonitor    SupplyAssessment   TransferCoord.  ProcurementEscal.
+       |                |                 |                  |                |
+STEP 1 |                |                 |                  |                |
+       |                |                 |                  |                |
+       |--STOCK_READING->|                |                  |                |
+       |  drug=insulin   |                |                  |                |
+       |  ward=ICU       |                |                  |                |
+       |  qty=8          |                |                  |                |
+       |                 |                |                  |                |
+       |         [set_stock(insulin,ICU,8,1)]               |                |
+       |         [severity: 8/100=8% -> CRITICAL]           |                |
+       |         [not in alerted_stocks -> add]             |                |
+       |                 |                |                  |                |
+       |                 |--STOCK_ALERT-->|                  |                |
+       |                 |  severity=CRITICAL               |                |
+       |                 |  quantity_needed=92              |                |
+       |                 |                |                  |                |
+       |                 |      [shortage_id = insulin_ICU] |                |
+       |                 |      [not in active_shortages]   |                |
+       |                 |      [category = ESSENTIAL]      |                |
+       |                 |      [Plan: CRITICAL]            |                |
+       |                 |                |                  |                |
+       |                 |                |--SHORTAGE_CLASSIFIED------------->|
+       |                 |                |  await_transfer_result=True      |
+       |                 |                |                  |                |
+       |                 |                |--SHORTAGE_CLASSIFIED->|          |
+       |                 |                |  (no await flag)  |              |
+       |                 |                |                  |                |
+       |                 |                |       [drug.category = ESSENTIAL] |
+       |                 |                |       [not CONTROLLED]            |
+       |                 |                |       [Search wards for donor]    |
+       |                 |                |       [EMERGENCY: 120, ratio=1.2] |
+       |                 |                |       [120 > 92*0.5=46: valid]    |
+       |                 |                |       [transfer_qty=min(92,60)=60] |
+       |                 |                |       [EMERGENCY: 120-60=60]      |
+       |                 |                |       [ICU: 8+60=68]             |
+       |                 |                |       [Create TR-001 COMPLETED]   |
+       |                 |                |                  |                |
+       |                 |                |                  |--TRANSFER_RESULT->|
+       |                 |                |                  |  success=True   |
+       |                 |                |                  |  TR-001, qty=60 |
+       |                 |                |                  |                |
+       |                 |                |      [insulin_ICU in _awaiting_transfer]
+       |                 |                |      [success=True: mark RESOLVED]  |
+       |                 |                |      [No procurement created]       |
+       |                 |                |                  |                |
+
+OUTCOME: TR-001 COMPLETED (60 units Insulin, EMERGENCY -> ICU)
+         Shortage insulin_ICU: RESOLVED (by transfer)
+         No procurement record created.

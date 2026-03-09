@@ -1,101 +1,86 @@
-WASTEWATCH - INTERACTION DIAGRAM: SCENARIO 3
-Air Quality Degradation at Riverbank - Late Report Corroboration (LOC-C)
-Prometheus Methodology Artifact - Chapter 6.1
-====================================================================
+MEDSTOCK - INTERACTION DIAGRAM: SCENARIO 3
+Amoxicillin SURGICAL (Transfer) + Paracetamol GENERAL (Procurement Confirmed)
+Student ID: 11126585 | Course: DCIT 403
 
-Actors: SensorNetwork, CitizenPortal, SurveillanceAgent,
-        AssessmentAgent, EvidenceAgent, EnforcementAgent
+================================================================================
 
-SENSOR  CITIZEN  SURVEIL  ASSESS  EVIDENCE  ENFORCE
-NET     PORTAL   LANCE    MENT    AGENT     MENT
-|       |        |        |       |         |
-| SA-003 |        |        |       |         |   STEP 7
-| AQI   |        |        |       |         |
-| 310   |        |        |       |         |
-|------>| SENSOR_ALERT    |       |         |
-|       |------->|        |       |         |
-|       |        | store  |       |         |
-|       |        | count=1|       |         |
-|       |        | wait   |       |         |
-|       |        |        |       |         |
-| SA-004 |        |        |       |         |   STEP 8
-| AQI   |        |        |       |         |
-| 290   |        |        |       |         |
-|------>| SENSOR_ALERT    |       |         |
-|       |------->|        |       |         |
-|       |        | count=2|       |         |
-|       |        | CREATE |       |         |
-|       |        | INC-C  |       |         |
-|       |        |        |       |         |
-|       |        | INCIDENT_DETECTED        |
-|       |        | (INC-C, LOC-C,  |        |
-|       |        | sensors=[AQ],   |        |
-|       |        | confidence=0.6) |        |
-|       |        |------->|       |         |
-|       |        |        | RULE: |         |
-|       |        |        | AQ-type        |
-|       |        |        | =HAZARD        |
-|       |        |        | ratio=3.05     |
-|       |        |        | =CRITICAL      |
-|       |        |        |       |         |
-|       |        |        | INCIDENT_CLASSIFIED
-|       |        |        | (INC-C,HAZARD, |
-|       |        |        |  CRITICAL)     |
-|       |        |        |------>|         |
-|       |        |        |       | COLLECT |
-|       |        |        | DISPATCH_REQUEST|
-|       |        |        |-------+-------->|
-|       |        |        |       | EVIDENCE_PACKAGE
-|       |        |        |       |-------->|
-|       |        |        |       |         | DISPATCH
-|       |        |        |       |         | EPA +
-|       |        |        |       |         | HAZMAT
-|       |        | RESPONSE_UPDATE          |
-|       |        |<-------------------------|
-|       |        |        |       |         |
-|       |        |        |       |         |   STEP 9
-|       |        | update |       |         |
-|       |        | status |       |         |
-|       |        |        |       |         |
-| CR-004 |        |        |       |         |   STEP 10
-| RIVER |        |        |       |         |
-| CONTAM|        |        |       |         |
-|       |------->|        |       |         |
-|       |        | LOCATE |       |         |
-|       |        | INC-C  |       |         |
-|       |        | exists |       |         |
-|       |        | CORREL |       |         |
-|       |        | report |       |         |
-|       |        | conf   |       |         |
-|       |        | 0.6->0.8       |         |
-|       |        |        |       |         |
-|       |        | INCIDENT_UPDATE|         |
-|       |        | (INC-C,        |         |
-|       |        |  conf=0.8)     |         |
-|       |        |------->|       |         |
-|       |        |        | UPDATE|         |
-|       |        |        | CONF  |         |
-|       |        |        | BELIEF|         |
-|       |        |        |       |         |
-[STEP 13 - 5 steps after evidence attached at step 8]
-|       |        |        |       |         |
-|       |        |        |       |         | CHECK
-|       |        |        |       |         | steps=5
-|       |        |        |       |         | ESCALATE
-|       |        |        |       |         | -> REGIONAL
-|       |        |        |       |         | status=
-|       |        |        |       |         | escalated
+Scenario 3a: Step 8 - Amoxicillin SURGICAL (40 tablets, 20% = HIGH)
+             Transfer from ICU (150 tablets) succeeds.
 
-====================================================================
-KEY FEATURES DEMONSTRATED IN SCENARIO 3:
-  1. Air quality sensor type correctly triggers hazardous classification
-  2. Late citizen report arrives AFTER incident is already dispatched
-  3. SurveillanceAgent correctly identifies existing incident and
-     correlates the late report rather than creating a new incident
-  4. Confidence updated from 0.6 to 0.8 without re-dispatching
-  5. Escalation triggered step-based timeout independent of real time
-====================================================================
-OUTCOME: INC-C classified HAZARDOUS/CRITICAL, EPA + HAZMAT dispatched,
-         late citizen report corroborated the incident (confidence 0.8),
-         subsequently escalated to Greater Accra Regional Enforcement Unit
-====================================================================
+Scenario 3b: Step 10 - Paracetamol GENERAL (160 tablets, 32% = MEDIUM)
+             Procurement PR-002 via BasicMeds Supplies, confirmed at step 14.
+
+================================================================================
+
+SCENARIO 3a - AMOXICILLIN SURGICAL (Step 8)
+--------------------------------------------
+
+  PharmacySensor   StockMonitor    SupplyAssessment   TransferCoord.  ProcurementEscal.
+       |                |                 |                  |                |
+STEP 8 |--STOCK_READING->|               |                  |                |
+       |  amoxicillin    |               |                  |                |
+       |  SURGICAL, 40   |               |                  |                |
+       |                 |               |                  |                |
+       |        [40/200=20% -> HIGH]     |                  |                |
+       |                 |               |                  |                |
+       |                 |--STOCK_ALERT->|                  |                |
+       |                 |  HIGH, need=160                  |                |
+       |                 |               |                  |                |
+       |                 |   [ESSENTIAL, Plan: HIGH]        |                |
+       |                 |               |--SHORTAGE_CLASSIFIED->|          |
+       |                 |               |                  |                |
+       |                 |   [Search wards for donor]       |                |
+       |                 |   [ICU: 150 tablets, ratio=0.75]  |               |
+       |                 |   [150 > 160*0.5=80: valid]      |                |
+       |                 |   [transfer_qty=min(160,75)=75]  |                |
+       |                 |   [ICU: 150-75=75]               |                |
+       |                 |   [SURGICAL: 40+75=115]          |                |
+       |                 |   [Create TR-003 COMPLETED]      |                |
+       |                 |               |                  |--TRANSFER_RESULT->|
+       |                 |               |                  |  success=True   |
+       |                 |               |      [Mark amoxicillin_SURGICAL RESOLVED]
+
+OUTCOME 3a: TR-003 COMPLETED (75 tablets, ICU -> SURGICAL)
+            amoxicillin_SURGICAL: RESOLVED (by transfer)
+
+
+SCENARIO 3b - PARACETAMOL GENERAL (Steps 10-14)
+-------------------------------------------------
+
+  PharmacySensor   StockMonitor    SupplyAssessment   TransferCoord.  ProcurementEscal.
+       |                |                 |                  |                |
+STEP 10|--STOCK_READING->|               |                  |                |
+       |  paracetamol    |               |                  |                |
+       |  GENERAL, 160   |               |                  |                |
+       |                 |               |                  |                |
+       |        [160/500=32% -> MEDIUM]  |                  |                |
+       |                 |               |                  |                |
+       |                 |--STOCK_ALERT->|                  |                |
+       |                 |  MEDIUM, need=340                |                |
+       |                 |               |                  |                |
+       |                 |   [STANDARD, Plan: MEDIUM]       |                |
+       |                 |               |--SHORTAGE_CLASSIFIED------------->|
+       |                 |               |  (no await_transfer_result)      |
+       |                 |               |                  |                |
+       |                 |               |   [_initiate_procurement()]      |
+       |                 |               |   [find_supplier("standard")]    |
+       |                 |               |   [-> BasicMeds Supplies]        |
+       |                 |               |   [Create PR-002 REQUESTED]      |
+       |                 |               |   [dispatch_step = 10]           |
+       |                 |               |                  |                |
+STEP 11| (proactive)                                      proactive_step()  |
+       |                 |               |                  |  [11-10=1 < 5] |
+STEP 12| (proactive)                                      proactive_step()  |
+       |                 |               |                  |  [12-10=2 < 5] |
+STEP 13| (proactive)                                      proactive_step()  |
+       |                 |               |                  |  [13-10=3 < 5] |
+       |                 |               |                  |                |
+STEP 14| Simulator calls: simulate_supplier_confirmation("paracetamol_GENERAL", 14)
+       |                 |               |                  |                |
+       |                 |               |   [PR-002 status=REQUESTED]      |
+       |                 |               |   [Set CONFIRMED, confirmed_step=14]
+       |                 |               |                  |                |
+STEP 15-20: proactive checks; PR-002 already CONFIRMED, no escalation.
+
+OUTCOME 3b: PR-002 CONFIRMED at step 14 via BasicMeds Supplies
+            paracetamol_GENERAL shortage: CONFIRMED (supplier confirmed)
