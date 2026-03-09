@@ -1,7 +1,7 @@
 # MedStock
 ## Hospital Pharmacy Stock Depletion and Emergency Resupply Coordination
 
-**Student ID:** 11126585
+**Student ID:** 11126586
 **Course:** DCIT 403 - Intelligent Agent Systems
 **Methodology:** Prometheus (Padgham and Winikoff, 2004)
 
@@ -53,7 +53,7 @@ No external packages are required. All dependencies are from the Python standard
 ## Project Structure
 
 ```
-DCIT403_Project_11126585/
+DCIT403_Project_11126586/
 ├── main.py                          Entry point. Launches the MedStockApp tkinter window.
 ├── requirements.txt                 Lists tkinter as the only dependency (stdlib).
 ├── README.md                        This file.
