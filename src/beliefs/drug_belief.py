@@ -16,6 +16,13 @@ class SeverityLevel(Enum):
     OK = "OK"
 
 
+class ExpiryStatus(Enum):
+    EXPIRED = "EXPIRED"
+    EXPIRING_SOON = "EXPIRING_SOON"
+    WARNING = "WARNING"
+    OK = "OK"
+
+
 @dataclass
 class Drug:
     drug_id: str
@@ -48,10 +55,22 @@ class StockRecord:
         return SeverityLevel.OK
 
 
+@dataclass
+class ExpiryBatch:
+    """A batch of a drug in a ward with a tracked expiry simulation-step."""
+    batch_id: str
+    drug_id: str
+    ward_id: str
+    quantity: float
+    expiry_step: int
+
+
 class DrugDatabase:
     def __init__(self):
         self._drugs = {}
         self._stocks = {}
+        self._batches = {}
+        self._batch_counter = 0
 
     def add_drug(self, drug: Drug):
         self._drugs[drug.drug_id] = drug
@@ -60,6 +79,14 @@ class DrugDatabase:
         return self._drugs.get(drug_id)
 
     def set_stock(self, drug_id: str, ward_id: str, quantity: float, step: int):
+        existing = self._stocks.get((drug_id, ward_id))
+        if existing:
+            delta = quantity - existing.current_stock
+            if delta < 0:
+                self._consume_batches_fefo(drug_id, ward_id, abs(delta))
+            elif delta > 0:
+                self._register_restock_batch(drug_id, ward_id, delta, step)
+
         key = (drug_id, ward_id)
         drug = self._drugs.get(drug_id)
         threshold = drug.reorder_threshold if drug else 0
@@ -79,3 +106,54 @@ class DrugDatabase:
 
     def get_all_drugs(self):
         return list(self._drugs.values())
+
+    def create_batch(self, drug_id: str, ward_id: str, quantity: float, expiry_step: int) -> ExpiryBatch:
+        self._batch_counter += 1
+        batch_id = f"BCH-{self._batch_counter:03d}"
+        batch = ExpiryBatch(
+            batch_id=batch_id,
+            drug_id=drug_id,
+            ward_id=ward_id,
+            quantity=quantity,
+            expiry_step=expiry_step
+        )
+        self._batches[batch_id] = batch
+        return batch
+
+    def get_batches_for_drug_ward(self, drug_id: str, ward_id: str):
+        return [b for b in self._batches.values()
+                if b.drug_id == drug_id and b.ward_id == ward_id]
+
+    def get_all_batches(self):
+        return list(self._batches.values())
+
+    def _consume_batches_fefo(self, drug_id: str, ward_id: str, quantity_to_consume: float):
+        """Consume stock from earliest-expiring batches first (FEFO)."""
+        if quantity_to_consume <= 0:
+            return
+
+        candidates = [
+            b for b in self._batches.values()
+            if b.drug_id == drug_id and b.ward_id == ward_id
+        ]
+        candidates.sort(key=lambda b: b.expiry_step)
+
+        remaining = quantity_to_consume
+        for batch in candidates:
+            if remaining <= 0:
+                break
+            consume = min(batch.quantity, remaining)
+            batch.quantity -= consume
+            remaining -= consume
+
+        empty_batch_ids = [
+            b.batch_id for b in candidates if b.quantity <= 0
+        ]
+        for batch_id in empty_batch_ids:
+            del self._batches[batch_id]
+
+    def _register_restock_batch(self, drug_id: str, ward_id: str, quantity_added: float, step: int):
+        """Register newly added stock as a long-dated replenishment batch."""
+        if quantity_added <= 0:
+            return
+        self.create_batch(drug_id, ward_id, quantity_added, step + 24)

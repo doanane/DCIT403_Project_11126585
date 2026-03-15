@@ -294,6 +294,7 @@ class MedStockApp(tk.Tk):
 
         self._build_transfers_tab()
         self._build_procurement_tab()
+        self._build_expiry_tab()
 
     def _build_transfers_tab(self):
         tab = tk.Frame(self.ops_notebook, bg=COLORS["bg_panel"])
@@ -355,6 +356,44 @@ class MedStockApp(tk.Tk):
         self.proc_tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
+    def _build_expiry_tab(self):
+        tab = tk.Frame(self.ops_notebook, bg=COLORS["bg_panel"])
+        self.ops_notebook.add(tab, text="  Expiry Monitor  ")
+
+        cols = ("Batch ID", "Drug", "Ward", "Qty", "Exp Step", "Status", "Detected")
+        self.expiry_tree = ttk.Treeview(
+            tab, columns=cols, show="headings", selectmode="browse"
+        )
+        col_widths = {
+            "Batch ID": 75, "Drug": 90, "Ward": 80,
+            "Qty": 55, "Exp Step": 70, "Status": 110, "Detected": 65
+        }
+        for col in cols:
+            self.expiry_tree.heading(col, text=col)
+            self.expiry_tree.column(col, width=col_widths.get(col, 75),
+                                    minwidth=40, anchor="center")
+
+        self.expiry_tree.tag_configure(
+            "expired_row",
+            background=COLORS["expiry_expired_bg"],
+            foreground=COLORS["expiry_expired"])
+        self.expiry_tree.tag_configure(
+            "expiring_soon_row",
+            background=COLORS["expiry_soon_bg"],
+            foreground=COLORS["expiry_soon"])
+        self.expiry_tree.tag_configure(
+            "warning_row",
+            background=COLORS["expiry_warning_bg"],
+            foreground=COLORS["expiry_warning"])
+        self.expiry_tree.tag_configure(
+            "ok_row", background=COLORS["ok_bg"], foreground=COLORS["ok"])
+
+        vsb = ttk.Scrollbar(tab, orient="vertical", command=self.expiry_tree.yview)
+        self.expiry_tree.configure(yscrollcommand=vsb.set)
+
+        self.expiry_tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
     def _build_log_panel(self):
         panel, content, header = make_panel(self.body_frame, "ACTIVITY LOG")
         panel.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(3, 0))
@@ -386,6 +425,7 @@ class MedStockApp(tk.Tk):
         self.log_text.tag_configure("assessment", foreground="#ce93d8")
         self.log_text.tag_configure("transfer", foreground="#ffb74d")
         self.log_text.tag_configure("procurement", foreground="#ef9a9a")
+        self.log_text.tag_configure("expiry", foreground="#4db6ac")
         self.log_text.tag_configure("system", foreground="#80cbc4")
         self.log_text.tag_configure(
             "system_bold", foreground="#80cbc4", font=("Consolas", 9, "bold"))
@@ -416,6 +456,8 @@ class MedStockApp(tk.Tk):
             self.log_text.insert("end", text + "\n", "transfer")
         elif "[ProcurementEscalationAgent]" in text:
             self.log_text.insert("end", text + "\n", "procurement")
+        elif "[ExpiryMonitorAgent]" in text:
+            self.log_text.insert("end", text + "\n", "expiry")
         else:
             self.log_text.insert("end", text + "\n", "system")
         self.log_text.configure(state="disabled")
@@ -431,6 +473,7 @@ class MedStockApp(tk.Tk):
         self._refresh_alerts_panel()
         self._refresh_transfers_panel()
         self._refresh_procurement_panel()
+        self._refresh_expiry_panel()
         self._refresh_status_bar()
         self._refresh_header_step()
         self._update_button_states()
@@ -584,12 +627,44 @@ class MedStockApp(tk.Tk):
                 escalated_step
             ), tags=(tag,))
 
+    def _refresh_expiry_panel(self):
+        for item in self.expiry_tree.get_children():
+            self.expiry_tree.delete(item)
+
+        alerts = self.simulator.expiry_monitor.expiry_alerts
+        status_order = {"EXPIRED": 0, "EXPIRING_SOON": 1, "WARNING": 2, "OK": 3}
+        sorted_alerts = sorted(
+            alerts.values(),
+            key=lambda a: (status_order.get(a["status"], 9), a["expiry_step"])
+        )
+
+        for alert in sorted_alerts:
+            status = alert["status"]
+            if status == "EXPIRED":
+                tag = "expired_row"
+            elif status == "EXPIRING_SOON":
+                tag = "expiring_soon_row"
+            elif status == "WARNING":
+                tag = "warning_row"
+            else:
+                tag = "ok_row"
+            self.expiry_tree.insert("", "end", values=(
+                alert["batch_id"],
+                alert["drug_name"],
+                alert["ward_id"],
+                int(alert["quantity"]),
+                alert["expiry_step"],
+                status,
+                alert["detected_step"],
+            ), tags=(tag,))
+
     def _refresh_status_bar(self):
         step = self.simulator.current_step
         total = self.simulator.total_steps
         alerts = len(self.simulator.supply_assessment.active_shortages)
         transfers = len(self.simulator.get_transfers())
         procs = len(self.simulator.get_procurements())
+        expiry_alerts = len(self.simulator.expiry_monitor.expiry_alerts)
 
         if self.simulator.finished:
             status_str = "COMPLETE"
@@ -600,7 +675,8 @@ class MedStockApp(tk.Tk):
 
         self.status_label.configure(
             text=(f"Step: {step}/{total} | Alerts: {alerts} | "
-                  f"Transfers: {transfers} | Procurements: {procs} | Status: {status_str}")
+                  f"Transfers: {transfers} | Procurements: {procs} | "
+                  f"Expiry Alerts: {expiry_alerts} | Status: {status_str}")
         )
 
     def _refresh_header_step(self):
@@ -709,5 +785,6 @@ class MedStockApp(tk.Tk):
         self.simulator.stock_monitor.run_cycle(step)
         self.simulator.supply_assessment.run_cycle(step)
         self.simulator.transfer_coord.run_cycle(step)
+        self.simulator.expiry_monitor.run_cycle(step)
         self.simulator.procurement_escalation.run_cycle(step)
         self.refresh_display()
