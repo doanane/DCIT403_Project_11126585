@@ -7,6 +7,7 @@ from src.agents.stock_monitor_agent import StockMonitorAgent
 from src.agents.supply_assessment_agent import SupplyAssessmentAgent
 from src.agents.transfer_coordination_agent import TransferCoordinationAgent
 from src.agents.procurement_escalation_agent import ProcurementEscalationAgent
+from src.agents.expiry_monitor_agent import ExpiryMonitorAgent
 
 TOTAL_STEPS = 20
 
@@ -32,6 +33,7 @@ class MedStockSimulator:
         self._setup_agents()
         self._setup_sensor()
         self._schedule_sensor_events()
+        self._setup_initial_batches()
 
     def _setup_drugs(self):
         self.drug_db.add_drug(Drug("insulin", "Insulin", DrugCategory.ESSENTIAL, "units", 100))
@@ -77,11 +79,15 @@ class MedStockSimulator:
         self.procurement_escalation = ProcurementEscalationAgent(
             self.agent_system, self.drug_db, self.supplier_db, self.log_callback
         )
+        self.expiry_monitor = ExpiryMonitorAgent(
+            self.agent_system, self.drug_db, self.log_callback
+        )
 
         self.agent_system.register(self.stock_monitor)
         self.agent_system.register(self.supply_assessment)
         self.agent_system.register(self.transfer_coord)
         self.agent_system.register(self.procurement_escalation)
+        self.agent_system.register(self.expiry_monitor)
 
     def _setup_sensor(self):
         self.sensor = PharmacySensor(self.agent_system)
@@ -91,6 +97,43 @@ class MedStockSimulator:
         self.sensor.schedule_reading(3, "morphine", "SURGICAL", 7)
         self.sensor.schedule_reading(8, "amoxicillin", "SURGICAL", 40)
         self.sensor.schedule_reading(10, "paracetamol", "GENERAL", 160)
+
+    def _setup_initial_batches(self):
+        """Create expiry-tracked batches for every current drug/ward stock.
+
+        Each stock record is split into two delivery lots so FEFO ordering can
+        be demonstrated naturally: an earlier-expiring lot and a later lot.
+        """
+        db = self.drug_db
+        all_stocks = db.get_all_stocks()
+
+        for index, record in enumerate(all_stocks):
+            total = max(0, int(record.current_stock))
+            if total == 0:
+                continue
+
+            early_qty = max(1, int(total * 0.4))
+            late_qty = max(0, total - early_qty)
+
+            # Stagger expiry windows to guarantee a mix of WARNING,
+            # EXPIRING_SOON and EXPIRED states during the 20-step run.
+            early_expiry_step = 2 + ((index * 3) % 12)   # 2..13
+            late_expiry_step = early_expiry_step + 10    # 12..23
+
+            db.create_batch(
+                record.drug_id,
+                record.ward_id,
+                early_qty,
+                early_expiry_step
+            )
+
+            if late_qty > 0:
+                db.create_batch(
+                    record.drug_id,
+                    record.ward_id,
+                    late_qty,
+                    late_expiry_step
+                )
 
     def step(self):
         if self.finished:
@@ -105,6 +148,7 @@ class MedStockSimulator:
         self.stock_monitor.run_cycle(self.current_step)
         self.supply_assessment.run_cycle(self.current_step)
         self.transfer_coord.run_cycle(self.current_step)
+        self.expiry_monitor.run_cycle(self.current_step)
         self.procurement_escalation.run_cycle(self.current_step)
 
         if self.current_step == 14:

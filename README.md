@@ -9,13 +9,13 @@
 
 ## Project Overview
 
-MedStock is a multi-agent system that monitors drug stock levels across five hospital wards, detects critical and high-severity shortages, coordinates internal ward transfers where surplus stock exists, initiates emergency procurement orders from approved suppliers, and escalates unconfirmed orders after a configurable timeout. The system is built using the Prometheus agent design methodology and implemented in Python 3 using the standard library only.
+MedStock is a multi-agent system that monitors drug stock levels across five hospital wards, detects critical and high-severity shortages, coordinates internal ward transfers where surplus stock exists, initiates emergency procurement orders from approved suppliers, escalates unconfirmed orders after a configurable timeout, and proactively tracks batch expiry to ensure near-expiry drugs are used first (FEFO). The system is built using the Prometheus agent design methodology and implemented in Python 3 using the standard library only.
 
 ---
 
 ## System Architecture
 
-The system contains four intelligent agents communicating through a central message-passing infrastructure:
+The system contains five intelligent agents communicating through a central message-passing infrastructure:
 
 | Agent | Role |
 |---|---|
@@ -23,6 +23,7 @@ The system contains four intelligent agents communicating through a central mess
 | SupplyAssessmentAgent | Classifies shortage by drug category, selects response plan |
 | TransferCoordinationAgent | Searches for donor wards, executes transfers, enforces controlled substance policy |
 | ProcurementEscalationAgent | Initiates procurement, tracks orders, proactively escalates overdue procurement |
+| ExpiryMonitorAgent | Scans all ward drug batches each step, flags expired/expiring stock, enforces FEFO, escalates expiry alerts |
 
 Messages flow in this direction:
 
@@ -30,6 +31,7 @@ Messages flow in this direction:
 PharmacySensor -> StockMonitorAgent -> SupplyAssessmentAgent -> TransferCoordinationAgent
                                                               -> ProcurementEscalationAgent
                                        TransferCoordinationAgent -> ProcurementEscalationAgent
+ExpiryMonitorAgent -> ProcurementEscalationAgent (EXPIRY_ALERT)
 ```
 
 ---
@@ -66,16 +68,17 @@ DCIT403_Project_11126586/
 │   │   ├── agent.py                 Base Agent class: inbox, send/receive, run_cycle.
 │   │   └── agent_system.py          AgentSystem: agent registry and message delivery.
 │   │
-│   ├── agents/                      The four domain-specific agents.
+│   ├── agents/                      The five domain-specific agents.
 │   │   ├── __init__.py
 │   │   ├── stock_monitor_agent.py   Detects shortages from sensor readings.
 │   │   ├── supply_assessment_agent.py  Classifies and routes shortage notifications.
 │   │   ├── transfer_coordination_agent.py  Coordinates inter-ward drug transfers.
-│   │   └── procurement_escalation_agent.py  Manages procurement and escalation.
+│   │   ├── procurement_escalation_agent.py  Manages procurement and escalation.
+│   │   └── expiry_monitor_agent.py  Monitors all batch expiry dates and enforces FEFO use order.
 │   │
 │   ├── beliefs/                     Data model classes (beliefs in Prometheus terms).
 │   │   ├── __init__.py
-│   │   ├── drug_belief.py           Drug, StockRecord, DrugDatabase, DrugCategory, SeverityLevel.
+│   │   ├── drug_belief.py           Drug, StockRecord, ExpiryBatch, DrugDatabase, DrugCategory, SeverityLevel, ExpiryStatus.
 │   │   ├── ward_belief.py           Ward, TransferRecord, WardDatabase, TransferStatus.
 │   │   └── supplier_belief.py       Supplier, ProcurementRecord, SupplierDatabase, ProcurementStatus.
 │   │
@@ -125,6 +128,8 @@ The simulation runs for 20 steps. Four sensor events are scheduled:
 | 8 | Amoxicillin | SURGICAL | 40 tablets | HIGH | Transfer TR-003 from ICU (75 tablets) |
 | 10 | Paracetamol | GENERAL | 160 tablets | MEDIUM | PR-002 from BasicMeds, confirmed at step 14 |
 
+In addition to these shortage scenarios, the simulator seeds expiry-tracked batches for every drug/ward stock record (split into two lots per record). The ExpiryMonitorAgent scans these every step, marks WARNING / EXPIRING_SOON / EXPIRED states, and enforces FEFO ordering per drug+ward.
+
 ---
 
 ## Key Design Decisions
@@ -135,7 +140,9 @@ The simulation runs for 20 steps. Four sensor events are scheduled:
 
 **Proactive escalation:** The ProcurementEscalationAgent calls _plan_check_and_escalate() every simulation cycle regardless of whether any messages were received. This ensures that overdue procurement orders are always detected.
 
-**Duplicate suppression:** The StockMonitorAgent maintains an alerted_stocks set to avoid sending the same alert twice. The SupplyAssessmentAgent maintains an active_shortages dict keyed by shortage_id to avoid classifying the same shortage twice. The ProcurementEscalationAgent checks both pending_procurements and resolved_shortages before creating a new procurement record.
+**Expiry escalation and FEFO:** The ExpiryMonitorAgent proactively scans all tracked ward batches each cycle. EXPIRED and EXPIRING_SOON batches raise EXPIRY_ALERT messages to ProcurementEscalationAgent. FEFO is enforced in the stock model: when stock drops, depletion is applied against the earliest-expiring batch first.
+
+**Duplicate suppression:** The StockMonitorAgent maintains an alerted_stocks set to avoid sending the same alert twice. The SupplyAssessmentAgent maintains an active_shortages dict keyed by shortage_id to avoid classifying the same shortage twice. The ProcurementEscalationAgent checks both pending_procurements and resolved_shortages before creating a new procurement record and ignores duplicate expiry status updates per batch. The ExpiryMonitorAgent tracks already-logged alert states to avoid log flooding.
 
 ---
 
@@ -144,7 +151,7 @@ The simulation runs for 20 steps. Four sensor events are scheduled:
 | Prometheus Phase | Implementation |
 |---|---|
 | Phase 1: System Specification | docs/phase1_system_specification.md, scenario data in simulator.py |
-| Phase 2: Architectural Design | src/agents/ (4 agents), src/core/ (message infrastructure), acquaintance_diagram.txt |
+| Phase 2: Architectural Design | src/agents/ (5 agents), src/core/ (message infrastructure), acquaintance_diagram.txt |
 | Phase 3: Interaction Design | Message dataclass, Performative enum, interaction diagram files |
 | Phase 4: Detailed Design | Agent plan methods (_plan_*), belief classes in src/beliefs/, capability diagrams |
 | Phase 5: Report | docs/phase5_report.md |

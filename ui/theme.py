@@ -37,6 +37,13 @@ COLORS = {
     "button_danger": "#c62828",
     "button_success": "#2e7d32",
     "button_neutral": "#455a64",
+    "expiry_expired": "#b71c1c",
+    "expiry_expired_bg": "#ffcdd2",
+    "expiry_soon": "#e65100",
+    "expiry_soon_bg": "#fff3e0",
+    "expiry_warning": "#f57f17",
+    "expiry_warning_bg": "#fff9c4",
+    "log_expiry": "#00695c",
 }
 
 FONTS = {

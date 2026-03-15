@@ -12,6 +12,7 @@ class ProcurementEscalationAgent(Agent):
         self.supplier_db = supplier_db
         self.pending_procurements = {}
         self.resolved_shortages = {}
+        self.expiry_escalations = {}
         self._awaiting_transfer = {}
 
     def handle_message(self, message):
@@ -19,6 +20,8 @@ class ProcurementEscalationAgent(Agent):
             self._plan_handle_shortage_classified(message.content)
         elif message.performative == Performative.TRANSFER_RESULT:
             self._plan_handle_transfer_result(message.content)
+        elif message.performative == Performative.EXPIRY_ALERT:
+            self._plan_handle_expiry_alert(message.content)
 
     def _plan_handle_shortage_classified(self, content):
         shortage_id = content["shortage_id"]
@@ -59,6 +62,33 @@ class ProcurementEscalationAgent(Agent):
         awaiting_content = self._awaiting_transfer.pop(shortage_id, None)
         source_content = awaiting_content if awaiting_content else content
         self._initiate_procurement(source_content)
+
+    def _plan_handle_expiry_alert(self, content):
+        """Record and log escalated expiry alerts from ExpiryMonitorAgent."""
+        batch_id = content["batch_id"]
+        status = content["status"]
+        existing = self.expiry_escalations.get(batch_id)
+
+        # Ignore duplicate status updates for the same batch.
+        if existing and existing["status"] == status:
+            return
+
+        self.expiry_escalations[batch_id] = {
+            "batch_id": batch_id,
+            "drug_id": content["drug_id"],
+            "drug_name": content["drug_name"],
+            "ward_id": content["ward_id"],
+            "quantity": content["quantity"],
+            "expiry_step": content["expiry_step"],
+            "status": status,
+            "steps_remaining": content["steps_remaining"],
+            "step": content["step"],
+        }
+
+        self.log(
+            f"EXPIRY ESCALATION received: Batch {batch_id} "
+            f"({content['drug_name']} in {content['ward_id']}) -> {status}"
+        )
 
     def _initiate_procurement(self, content):
         shortage_id = content["shortage_id"]
